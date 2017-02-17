@@ -1,0 +1,22 @@
+#hexField {
+    font-family:"Courier New", Courier, monospace;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    height: 400px;
+    width: 600px;
+    box-sizing: border-box;
+}
+
+#asciiField {
+    font-family:"Courier New", Courier, monospace;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    white-space: pre;
+    height: 400px;
+    width: 330px;
+    box-sizing: border-box;
+}
+
+#canvas {
+    display: none;
+}
