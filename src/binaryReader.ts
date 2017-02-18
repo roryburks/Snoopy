@@ -15,6 +15,12 @@ class BinaryReader {
         
         return this.buffer[this.seeker++];
     }
+    peekByte() : number {
+        if( this.seeker >= this.buffer.length)
+            return -1;
+        
+        return this.buffer[this.seeker];
+    }
     readUShort() : number {
         if( this.seeker + 1 >= this.buffer.length)
             return -1;
@@ -53,6 +59,7 @@ class BinaryReader {
             decodedString = decodeURIComponent(encodeURI(encodedString));
         return decodedString;
     }
+    
 
     getSeek() : number { return this.seeker;}
     setSeek(n : number) { 
@@ -67,4 +74,60 @@ class BinaryReader {
         return( this.seeker >= this.buffer.length);
     }
 }
-export {BinaryReader};
+
+
+class BitSeeker {
+    bitseek = 0;
+    byte : number;
+    reader : BinaryReader;
+
+    constructor( reader : BinaryReader) {
+        console.log("new");
+        this.reader = reader;
+    }
+    
+    /** Reads up to 32 bits from the stream, memorizing the bit-counter for subsequent
+     * readBits attempts.
+     * 
+     * NOTE: when done reading bits you should clear the bitcounter with clipBits otherwise
+     * it will not properly align.  Other read functions will NOT honor the bitcounter.
+    */
+    readBits( n : number) : number {
+        var r = 0;
+
+
+        if( !this.byte) 
+            this.byte = this.getNextByte();
+
+        while( n + this.bitseek >= 8) {
+            var bits = 8 - this.bitseek;
+            r = (r << bits) | (this.byte >> this.bitseek);
+            n -= bits;
+            this.bitseek = 0;
+            this.byte = this.getNextByte();
+        }
+
+        if( n + this.bitseek < 8) {
+            bits = n;
+            r = (r << n) | (this.byte >> this.bitseek);
+            this.bitseek += n;
+        }
+
+        return r;
+    }
+    private getNextByte() : number {
+        var n = this.reader.readByte();
+
+        if( n == 0xFF) {
+            if( this.reader.peekByte() != 0xFF) {
+                console.log( "Unpacked 0xFF outside of data section.")
+            }
+            else {
+                this.reader.readByte();
+            }
+        }
+
+        return n;
+    }
+}
+export {BinaryReader, BitSeeker};

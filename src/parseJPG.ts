@@ -18,9 +18,8 @@ class JPGParser {
     parse() : ParseStructure {
         this.parsed = new ParseStructure();
         if( !this.parseHeader()) return null;
-        if( !this.parseSegment()) return null;
-        if( !this.parseSegment()) return null;
-        if( !this.parseSegment()) return null;
+
+        while( this.parseSegment()) {}
 
         return this.parsed;
     }
@@ -51,46 +50,84 @@ class JPGParser {
 
         var marker = reader.readByte();
 
-        switch( marker) {
-        case 0xE0:
-            return this.parseAPP0();
-        case 0xE1:
-            return this.parseAPP1();
-        case 0xE2:case 0xE3:case 0xE4:case 0xE5:case 0xE6:case 0xE7:case 0xE8:
-        case 0xE9:case 0xEA:case 0xEB:case 0xEC:case 0xED:case 0xEE:case 0xEF:
-            return this.parseAPPN(marker - 0xE0);
-        case 0xDB:
-            return this.parseQuantizationTable();
-        default:
-            console.log("Unrecognized Marker in JPEG file: 0xFF " + hexStr(marker));
-        }
-
-        return true;
-    }
-
-    private parseAPP0() : boolean {
         var reader = this.reader;
         var start = reader.getSeek() - 2;
         var len = reader.readUShort();
+        switch( marker) {
+        case 0xE0:
+            this.parseAPP0(start, len+2);
+            break;
+        case 0xE1:
+            this.parseAPP1(start, len+2);
+            break;
+        case 0xE2:case 0xE3:case 0xE4:case 0xE5:case 0xE6:case 0xE7:case 0xE8:
+        case 0xE9:case 0xEA:case 0xEB:case 0xEC:case 0xED:case 0xEE:case 0xEF:
+            var appndata = new UnknownAPPNData();
+            appndata.n =  (marker - 0xE0);
+            this.parsed.segments.push(appndata.constructSegment(reader,start,len+2));
+            break;
+        case 0xC0:
+            var sofdata = new SOFData();
+            this.parsed.segments.push(sofdata.constructSegment(reader,start,len+2));
+            break;
+        case 0xC4:
+            var huffdata = new HuffmanData();
+            this.parsed.segments.push(huffdata.constructSegment(reader,start,len+2));
+            break;
+//        case 0xDA:
+//            return this.parseSOS();
+        case 0xDB:
+            var qtdata = new QuantTableData();
+            this.parsed.segments.push(qtdata.constructSegment(reader,start,len+2));
+            break;
+        case 0xD9:
+            this.parsed.segments.push({
+                start : reader.getSeek() - 2,
+                length : 2,
+                color: "#777777",
+                descriptor: "End of Scan (end of file)",
+                binding: []
+            });
+            return false;
+        default:
+            this.parseUnsupported( marker, start, len+2);
+        }
+        reader.setSeek( start + len + 2);
+
+        return true;
+    }
+    private parseUnsupported( marker: number, start: number, length : number) {
+        var str;
+
+        if( marker == 0xC8)
+            str = "Reserved Internal Data";
+        else if( marker == 0xF0 || marker == 0xFD || marker == 0xDE || marker == 0xDF)
+            str = "Ignore (Skip).  Whatever that means.";
+        else if( marker > 0xC1 && marker <= 0xCF) 
+            str = "Unsupported Start of Frame Segment #" + (marker - 0xC0);
+        else if( marker >= 0xD0 && marker <= 0xD7)
+            str = "RTSn for Resync (ignore).";
+        else if( marker == 0xCC)
+            str = "Arithmetic Table";
+        else str = "Unknown Tag: " + hexStr(marker);
+
+        this.parsed.segments.push( {
+            binding : [],
+            start: start,
+            length: length,
+            descriptor : str,
+            color: "#999999"
+        });
+    }
+
+    private parseAPP0( start : number, length : number) : boolean {
+        var reader = this.reader;
 
         var identifier = reader.readUTF8Str();
 
         if( identifier == "JFIF") {
             var data = new JFIFData();
-
-            data.start = start;
-            data.length = len + 2;
-            data.versionMajor = reader.readByte();
-            data.versionMinor = reader.readByte();
-            data.pixelDensityUnits = reader.readByte();
-            data.xDensity = reader.readUShort();
-            data.yDensity = reader.readUShort();
-            data.xThumbnail = reader.readByte();
-            data.yThumbnail = reader.readByte();
-            if( data.xThumbnail * data.yThumbnail > 0) {
-                data.thumbnailData = reader.readBytes(data.xThumbnail*data.yThumbnail*3);
-            }
-            this.parsed.segments.push( data.constructSegment());
+            this.parsed.segments.push( data.constructSegment(reader,start,length));
         }
         else if( identifier == "JFXX") {
             console.log( "JFXX: Unimplemented");
@@ -99,75 +136,21 @@ class JPGParser {
             console.log( "Unknown APP0 identifier (" + identifier + "), skipping.");
         }
 
-        reader.setSeek( start + len + 2);
         return true;
     }
     
-    private parseAPP1() : boolean {
+    private parseAPP1(start: number, length: number) : boolean {
         var reader = this.reader;
-        var start = reader.getSeek() - 2;
-        var len = reader.readUShort();
-        
-        
         var identifier = reader.readUTF8Str();
 
         if( identifier == "Exif") {
             var data = new EXIFData();
-            data.start = start;
-            data.length = len + 2;
-            this.parsed.segments.push( data.constructSegment());
+            this.parsed.segments.push( data.constructSegment(reader,start,length));
         }
-
-        reader.setSeek( start + len + 2);
-        return true;
-    }
-
-    private parseAPPN(n : number) : boolean {
-        var reader = this.reader;
-        var start = reader.getSeek() - 2;
-        var len = reader.readUShort();
-        
-        var data = new UnknownAPPNData();
-        data.start = start;
-        data.length = len + 2;
-        data.n = n;
-        this.parsed.segments.push(data.constructSegment());
-        
-        reader.setSeek( start + len + 2);
         return true;
     }
 
     private parseSOF0() : boolean {
-        return true;
-    }
-
-    private parseQuantizationTable() : boolean {
-        var reader = this.reader;
-        var start = reader.getSeek() - 2;
-        var len = reader.readUShort();
-
-        var info = reader.readByte();
-
-        var data = new QuantTableData();
-        data.start = start;
-        data.length = len + 2;
-        data.highPrec = (info >> 4) ? true : false;
-        data.dest = info & 0xF;
-
-        if( data.highPrec) {
-            data.table16 = new Uint16Array(64);
-            for( var i=0; i<64; ++i) {
-                data.table16[i] = reader.readUShort();
-            }
-        }
-        else {
-            data.table8 = new Uint8Array(64);
-            for( var i=0; i<64; ++i) {
-                data.table8[i] = reader.readByte();
-            }
-        }
-        this.parsed.segments.push(data.constructSegment());
-        reader.setSeek( start + len + 2);
         return true;
     }
 }
@@ -176,24 +159,22 @@ export {JPGParser}
 interface SegmentBuilder {
     start : number;
     length : number;
-    constructSegment() : Segment;
+    constructSegment(reader : BinaryReader, start:number, len:number) : Segment;
 }
 
 class UnknownAPPNData implements SegmentBuilder {
     start : number;
     length : number;
     n : number;
-    constructSegment() : Segment {
+    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
         var seg = new Segment();
-        seg.start = this.start;
-        seg.length = this.length;
+        seg.start = start;
+        seg.length = len;
         seg.color = "#AAAAAA";
         seg.descriptor = "Unknown Application-Specific Data"
 
         return seg;
-        
     }
-
 }
 
 class JFIFData implements SegmentBuilder {
@@ -208,7 +189,20 @@ class JFIFData implements SegmentBuilder {
     yThumbnail : number;
     thumbnailData : Uint8Array;
 
-    constructSegment() : Segment {
+    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
+        this.start = start;
+        this.length = len
+        this.versionMajor = reader.readByte();
+        this.versionMinor = reader.readByte();
+        this.pixelDensityUnits = reader.readByte();
+        this.xDensity = reader.readUShort();
+        this.yDensity = reader.readUShort();
+        this.xThumbnail = reader.readByte();
+        this.yThumbnail = reader.readByte();
+        if( this.xThumbnail * this.yThumbnail > 0) {
+            this.thumbnailData = reader.readBytes(this.xThumbnail*this.yThumbnail*3);
+        }
+
         var seg = new Segment();
         var str; 
 
@@ -255,10 +249,10 @@ class EXIFData  implements SegmentBuilder{
     length : number;
 
 
-    constructSegment() : Segment {
+    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
         var seg = new Segment();
-        seg.start = this.start;
-        seg.length = this.length;
+        seg.start = start;
+        seg.length = len;
         seg.color = "#26a89d";
         seg.descriptor = "Exif Data";
 
@@ -274,10 +268,29 @@ class QuantTableData implements SegmentBuilder {
     table8 : Uint8Array;
     table16 : Uint16Array;
 
-    constructSegment() : Segment {
+    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
+        var info = reader.readByte();
+        this.start = start;
+        this.length = len;
+        this.highPrec = (info >> 4) ? true : false;
+        this.dest = info & 0xF;
+
+        if( this.highPrec) {
+            this.table16 = new Uint16Array(64);
+            for( var i=0; i<64; ++i) {
+                this.table16[i] = reader.readUShort();
+            }
+        }
+        else {
+            this.table8 = new Uint8Array(64);
+            for( var i=0; i<64; ++i) {
+                this.table8[i] = reader.readByte();
+            }
+        }
+
         var seg = new Segment();
-        seg.start = this.start;
-        seg.length = this.length;
+        seg.start = start;
+        seg.length = len;
         seg.color = "#b2748a";
         seg.descriptor = "Quantization Table Data";
         
@@ -332,9 +345,6 @@ class QuantTableData implements SegmentBuilder {
             bindings.push(new NilBinding('<tr class="matrixRow">'));
             for( var y=0; y<8; ++y) {
                 var index = x + y*8;
-                if( !elements[index]) {
-                    console.log( x +","+ y);
-                }
                 bindings.push( elements[index]);
             }
             bindings.push(new NilBinding('</tr>'));
@@ -347,8 +357,141 @@ class QuantTableData implements SegmentBuilder {
     }
 
     private ele( x: number, y : number, elements : Binding[], entry : number, i : number, sizeof : number) {
-        console.log(i + "("+x+","+y+")");
         elements[x*8+y] = 
-        new DataBinding('<td class="matrixElement">'+entry+'</td>', 5 + sizeof * i, sizeof);
+        new DataBinding('<td class="matrixElement">'+entry+'</td>', this.start + 5 + sizeof * i, sizeof);
+    }
+}
+
+class SOFData implements SegmentBuilder {
+    start : number;
+    length : number;
+    precision : number;
+    width: number;
+    height : number;
+    numComponents: number;
+    cField : number[] = [];
+    cFactor : number[] = [];
+    cQTable : number[] = [];
+    
+    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
+        this.start = start;
+        this.length = len;
+        this.precision = reader.readByte();
+        this.width = reader.readUShort();
+        this.height = reader.readUShort();
+        this.numComponents = reader.readByte();
+
+        for( var i=0; i< this.numComponents; ++i) {
+            this.cField[i] = reader.readByte();
+            this.cFactor[i] = reader.readByte();
+            this.cQTable[i] = reader.readByte();
+        }
+
+        var seg = new Segment();
+        seg.color = "#814a8c";
+        seg.descriptor = "Start of Frame 0";
+        seg.start = this.start;
+        seg.length = this.length;
+
+        var bindings : Binding[] = [];
+
+        bindings.push( new DataBinding(""+this.precision+"-bit Precision",start+4,1));
+        bindings.push( new NilBinding("<br />Image Size: "));
+        bindings.push( new DataBinding(""+this.width, start+5, 2));
+        bindings.push( new NilBinding("x"));
+        bindings.push( new DataBinding(""+this.height, start+7, 2));
+        bindings.push( new NilBinding("<br />Number of Components: "));
+        bindings.push( new DataBinding(""+this.numComponents, start+9, 1));
+
+        for( var i=0; i<this.numComponents; ++i) {
+            bindings.push( new NilBinding("<br />Component " +i +": "));
+            var str = "?";
+            switch(this.cField[i]) {
+                case 1: str="Y";break;
+                case 2: str="Cb";break;
+                case 3: str="Cr";break;
+                case 4: str="I";break;
+                case 5: str="Q";break;
+            }
+            bindings.push( new DataBinding(str, start+10 + i*3, 1));
+            bindings.push( new NilBinding(" sampling factors: "));
+            bindings.push( new DataBinding(""+(this.cFactor[i]>>4), start+10 + i*3+1, 1));
+            bindings.push( new NilBinding("x"));
+            bindings.push( new DataBinding(""+(this.cFactor[i]&0xF), start+10 + i*3+1, 1));
+            bindings.push( new NilBinding(" Quantization Table: "));
+            bindings.push( new DataBinding(""+this.cQTable[i], start+10+i*3+2, 1));
+        }
+
+        seg.binding = bindings;
+        
+
+        return seg;
+    }
+}
+
+class HuffmanData implements SegmentBuilder {
+    start : number;
+    length : number;
+    id : number;
+    dc : boolean;
+    numPerRow : number[] = new Array(16);
+    table : number[][] = new Array(16);
+    codes : Uint16Array;
+
+    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
+        this.start = start;
+        this.length = len;
+
+        var byte = reader.readByte();
+
+        this.id = byte & 0x7;
+        this.dc = (((byte >> 3)&0x1) == 0);
+
+        for( var i=0; i<16; ++i) {
+            this.numPerRow[i] = reader.readByte();
+        }
+
+//        var bs  = new BitSeeker(reader);
+
+        for( var i=0; i<16; ++i) {
+            var n = this.numPerRow[i];
+            this.table[i] = new Array(n);
+            for( var j=0; j<n; ++j) {
+//                this.table[i][j] = bs.readBits(i+1);
+            }
+        }
+
+        var seg = new Segment();
+        seg.start = start;
+        seg.length = len;
+        seg.color = "#9b4444";
+        seg.descriptor = "Huffman Table";
+
+        var bindings : Binding[] = [];
+
+        for( var i=0; i<16; ++i) {
+            var n = this.numPerRow[i];
+                bindings.push( new NilBinding((i+1)+":"));
+            for( var j=0; j<n; ++j) {
+                var str = (this.table[i][j]>>>0).toString(2);
+
+                while( str.length < (i+1)) str = "0"+str;
+                bindings.push( new NilBinding( str+ " "));
+            }
+                bindings.push( new NilBinding(" <br />"));
+        }
+
+
+        seg.binding = bindings;
+
+        return seg;
+    }
+
+    private constructHuffmanCodes() {
+        var count = 0;
+        for( var i=0; i<16; ++i) {
+            count += this.numPerRow[i];
+        }
+
     }
 }
