@@ -20,3 +20,7 @@
 #canvas {
     display: none;
 }
+
+#segmentField {
+    float: left;
+}

@@ -1,6 +1,9 @@
 {
     "files": [
-        "src/main.ts"
+        "src/main.ts",
+        "src/binaryReader.ts",
+        "src/parseJPG.ts",
+        "src/parseStructure.ts"
     ],
     "compilerOptions": {
         "noImplicitAny": true,
