@@ -24,3 +24,31 @@
 #segmentField {
     float: left;
 }
+
+.segment {
+    outline-style: solid;
+    outline-width: 1px;
+}
+
+.matrix {
+    display: flex;
+}
+.matrixLeft {
+    flex: 0 1;
+    border-style: solid;
+    border-width: 2px 0px 2px 2px;
+    padding: 5px;
+}
+.matrixRight {
+    flex: 0 1;
+    border-style: solid;
+    border-width: 2px 2px 2px 0px;
+    padding: 5px;
+}
+.matrixContent {
+    flex: 0 1;
+}
+.matrixElement {
+    padding: 0px 5px;
+    font-family:"Courier New", Courier, monospace;
+}
