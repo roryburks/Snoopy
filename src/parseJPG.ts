@@ -1,16 +1,14 @@
 import {BinaryReader} from "./binaryReader";
 import {hexStr} from "./main";
-import {ParseStructure} from "./parseStructure";
-import {Segment} from "./parseStructure";
+import {ParseStructure, Parser, Segment} from "./parseStructure";
 import {Binding, DataBinding, NilBinding} from "./parseStructure";
 
-class JPGParser {
-    reader : BinaryReader;
+class JPGParser extends Parser{
     error : string = "";
     parsed : ParseStructure;
 
     constructor( buffer : Uint8Array) {
-        this.reader = new BinaryReader(buffer);
+        super(buffer);
     }
     getError() : string{
         return this.error;

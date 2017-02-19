@@ -3,7 +3,9 @@
         "src/main.ts",
         "src/binaryReader.ts",
         "src/parseJPG.ts",
-        "src/parseStructure.ts"
+        "src/parsePNG.ts",
+        "src/parseStructure.ts",
+        "src/util.ts"
     ],
     "compilerOptions": {
         "noImplicitAny": true,

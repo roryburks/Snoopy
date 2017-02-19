@@ -1,29 +1,37 @@
-
+import {BinaryReader} from "./binaryReader";
 
 /**
  * 
  */
-class ParseStructure {
+export abstract class Parser {
+    reader : BinaryReader;
+
+    constructor( buffer : Uint8Array) {
+        this.reader = new BinaryReader(buffer);
+    }
+    abstract parse() : ParseStructure;
+}
+export class ParseStructure {
     segments : Segment[] = [];
 }
-class Segment {
+export class Segment {
     start : number;
     length : number;
     color : string;
     descriptor : string;
     binding : Binding[];
 }
-interface Binding {
+export interface Binding {
     getHTML() : string;
 }
-class NilBinding implements Binding {
+export class NilBinding implements Binding {
     html : string;
     constructor( html : string ) {
         this.html = html;
     }
     getHTML() { return this.html;}
 }
-class DataBinding extends NilBinding {
+export class DataBinding extends NilBinding {
     start : number;
     length : number;
     constructor( html : string, start : number, length : number) {
@@ -32,6 +40,3 @@ class DataBinding extends NilBinding {
         this.length = length;
     }
 }
-export {ParseStructure}
-export {Segment}
-export {Binding, NilBinding, DataBinding}

@@ -11,24 +11,34 @@ class BinaryReader {
 
     readByte() : number {
         if( this.seeker >= this.buffer.length)
-            return -1;
+            return undefined;
         
         return this.buffer[this.seeker++];
     }
     peekByte() : number {
         if( this.seeker >= this.buffer.length)
-            return -1;
+            return undefined;
         
         return this.buffer[this.seeker];
     }
     readUShort() : number {
         if( this.seeker + 1 >= this.buffer.length)
-            return -1;
+            return undefined;
         var n = this.buffer[this.seeker] << 8 |
                 this.buffer[this.seeker+1];
 
         this.seeker += 2;
         return n;
+    }
+    readUInt() : number {
+        if( this.seeker + 3 >= this.buffer.length)
+            return undefined;
+        var n = this.buffer[this.seeker] << 24 |
+                this.buffer[this.seeker+1] << 16 |
+                this.buffer[this.seeker+2] << 8 |
+                this.buffer[this.seeker+3];
+        this.seeker += 4;
+        return n >>> 0;
     }
 
     readBytes( len : number) : Uint8Array {
@@ -54,6 +64,21 @@ class BinaryReader {
             ++i;
         }
         this.seeker += i+1;
+        
+        var encodedString = String.fromCharCode.apply(null, new Uint8Array(bytes)),
+            decodedString = decodeURIComponent(encodeURI(encodedString));
+        return decodedString;
+    }
+
+    /** Reads a UTF8-encoded string from a fixed length of bytes.  */
+    readUTF8StrLen( n :number) : string {
+        var bytes = new Uint8Array(n);
+        var i=0;
+        
+        for( var i =0; i<n; ++i) {
+            bytes[i] = this.buffer[this.seeker+i];
+        }
+        this.seeker += n;
         
         var encodedString = String.fromCharCode.apply(null, new Uint8Array(bytes)),
             decodedString = decodeURIComponent(encodeURI(encodedString));

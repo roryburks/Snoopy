@@ -1,5 +1,7 @@
 import {JPGParser} from "./parseJPG";
-import {Segment} from "./parseStructure";
+import {PNGParser} from "./parsePNG";
+import {Segment, Parser} from "./parseStructure";
+import {getFileExtension} from "./util";
 
 function hello(compiler: string) {
     console.log(`Hello from ${compiler}`);
@@ -44,8 +46,10 @@ function loadFile() {
 
 class Loader {
     fileReader : FileReader;
+    filename : string;
 
     constructor( file:  File) {
+        this.filename = file.name;
         this.fileReader = new FileReader();
         this.fileReader.onload = this.onLoad.bind(this);
         this.fileReader.readAsArrayBuffer( file);
@@ -65,13 +69,14 @@ class Loader {
         var ascii : string = "";
         var line : string = "";
 
-        var parser = new JPGParser(uArray);
-        var parsed = parser.parse();
+        var parser = getParserFromExtension(
+            getFileExtension(this.filename).toLowerCase(), uArray);
+        var parsed = (parser)?parser.parse() : null;
         var segment : Segment = null;
         var insegment = false;
         var wseg = 0;
 
-        if( parsed.segments.length > wseg) {
+        if( parsed && parsed.segments.length > wseg) {
             segment = parsed.segments[wseg++];
         }
 
@@ -112,6 +117,14 @@ class Loader {
             $('.segment' + i).click( boundSetSegmentField.bind(parsed.segments[i]));
         }
 
+    }
+}
+
+function getParserFromExtension( ext : string, buffer : Uint8Array) {
+    switch( ext) {
+        case "jpg": case "jpeg": return new JPGParser(buffer);
+        case "png": return new PNGParser(buffer);
+        default: return null;
     }
 }
 
