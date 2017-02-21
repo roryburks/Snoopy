@@ -2,7 +2,7 @@ import {Dimension, getTextDimensions} from "./util";
 import {Parser, ParseStructure, Segment} from "./parseStructure";
 import {JPGParser} from "./parseJPG";
 import {PNGParser} from "./parsePNG";
-import {getFileExtension} from "./util";
+import {getFileExtension,Uint8ToString} from "./util";
 import {hexStr, asciiStr} from "./main";
 
 export class UIManager {
@@ -14,6 +14,8 @@ export class UIManager {
     parsed : ParseStructure;
     filename : string;
 
+    textDim : Dimension;
+
     constructor() {
         this.hexField = $("#hexField").get(0) as HTMLDivElement;
         this.asciiField = $("#asciiField").get(0) as HTMLDivElement;
@@ -24,16 +26,41 @@ export class UIManager {
     }
 
     private initComponents() {
+        var comp = window.getComputedStyle(this.hexField);
+
+        this.hexField.innerHTML = '<pre><span id="sizeTester">12</span></pre>';
+        var ele = $("#sizeTester");
+        this.textDim = {
+            width : ele.width(),
+            height :ele.height()
+        }
+        this.hexField.innerHTML = "";
+        var dim = this.textDim;
+        
+        this.hexField.style.backgroundSize = (dim.width) + "px " + (dim.height) +"px";
+        this.asciiField.style.backgroundSize = (dim.width/2) + "px " + (dim.height) +"px";
+
         this.scrollBar.onscroll = (evt : Event) => {
             this.buildFromData();
         }
 
         // Bind input in the not-actually-moving hex and ascii fields into the scrollBar
-        var f = (evt : WheelEvent) => {
-            this.scrollBar.scrollTop -= evt.wheelDelta;
+        var f = (evt : JQueryEventObject) : any => {
+            var me = (evt.originalEvent as WheelEvent)
+            var amt = me.wheelDelta || 
+                -me.deltaY * 30;
+
+            this.scrollBar.scrollTop -= amt;
+            try {
+                evt.stopPropagation();
+                evt.preventDefault();
+                me.preventDefault();
+                me.stopPropagation();
+                me.stopImmediatePropagation();
+            } catch(e) {}
         }
-        this.hexField.onmousewheel = f;
-        this.asciiField.onmousewheel = f;
+        $(this.hexField).bind("wheel",f);
+        $(this.asciiField).bind("wheel",f);
     }
 
     assosciateData( data : Uint8Array, filename : string) {
@@ -44,11 +71,21 @@ export class UIManager {
             getFileExtension(this.filename).toLowerCase(), this.data);
         this.parsed = (parser)?parser.parse() : null;
 
+        if( this.parsed) {
+            $("#visualField").empty();
+            var img = document.createElement("img") as HTMLImageElement;
+
+            var str = "data:image/*;base64," + btoa(Uint8ToString(this.data));
+
+            img.setAttribute("src", str);
+            $("#visualField").append(img);
+        }
+
         // TODO : Make sure segments are non-overlapping, sorted in order.
         
-        var w = this.hexField.clientWidth;
-        var dim = getTextDimensions("1", window.getComputedStyle(this.hexField, null).font );
-        var charPerLine = Math.max(1, Math.floor(w/dim.width));
+        var w = $(this.hexField).width();
+        var dim = this.textDim;
+        var charPerLine = Math.max(1, Math.floor(w/dim.width))-1;
         var numLines = Math.max( 1, Math.ceil(this.data.byteLength / charPerLine));
         this.scrollField.style.height = (dim.height * numLines) + "px";
 
@@ -59,11 +96,12 @@ export class UIManager {
      * obnoxiously long UI waiting and rendering.
      */
     private buildFromData() {
+        
         // Determing the dimensions necessary for constructing the fields
-        var dim = getTextDimensions("1", window.getComputedStyle(this.hexField, null).font );
-        var w = this.hexField.clientWidth;
-        var h = this.hexField.clientHeight;
-        var charPerLine = Math.max(1, Math.floor(w/dim.width));
+        var dim = this.textDim;
+        var w = $(this.hexField).width();
+        var h = $(this.hexField).height();
+        var charPerLine = Math.max(1, Math.floor(w/dim.width))-1;
         var numLines = Math.max( 1, Math.ceil(this.data.byteLength / charPerLine));
         var visLines = Math.max( 1, Math.ceil(h/dim.height));
         var startLine = Math.ceil(this.scrollBar.scrollTop / dim.height);
@@ -83,7 +121,8 @@ export class UIManager {
             while( segment != null && segment.start+segment.length < startLine * charPerLine) 
                 segment = this.parsed.segments[wseg++];
         }
-
+        hex += "<pre>"
+        ascii += "<pre>"
         for( var i=startLine; i < startLine + visLines; ++i) {
             var v : number;
             for( var j=0; j<charPerLine; ++j) {
@@ -121,6 +160,8 @@ export class UIManager {
             hex += "</span>";
             ascii += "</span>";
         }
+        hex += "</pre>"
+        ascii += "</pre>"
         
         this.hexField.innerHTML = hex;
         this.asciiField.innerHTML = ascii;
