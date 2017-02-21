@@ -38,7 +38,6 @@ export class PNGParser extends Parser {
         return true;
     }
     parseChunk() : boolean {
-        console.log( "start:"+this.reader.getSeek());
         var start = this.reader.getSeek();
         var len = this.reader.readUInt();
         var type = this.reader.readUTF8StrLen(4);
@@ -58,7 +57,6 @@ export class PNGParser extends Parser {
         var crc = this.reader.readUInt();
 
 
-        console.log( "end:"+this.reader.getSeek());
 
         return true;
     }
