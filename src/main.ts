@@ -62,8 +62,6 @@ const _ascii = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]
 console.log( _ascii.length);
 function asciiStr( uint : number) : string {
     if( uint < 32) return " ";
-    if( uint < 65 || (uint>90 && uint<97))
-        return '&#'+uint+';';
     if( uint < 127) 
         return _ascii[uint - 32];
     return " ";

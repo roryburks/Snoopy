@@ -61,15 +61,14 @@ body {
 }
 
 #hexField {
-    font-family:"Courier New", Courier, monospace;
     overflow: hidden;
     width: 64%;
     box-sizing: border-box;
     position: relative; 
 }
 
+
 #asciiField {
-    font-family:"Courier New", Courier, monospace;
     overflow: hidden;
     white-space: pre;
     width: 31%;
@@ -85,6 +84,41 @@ body {
     width: 100%;
     margin-top: 10px;
 /*    overflow: scroll;*/
+}
+
+.cTable {
+    border-spacing: 0px;
+    table-layout:fixed;
+    overflow:auto;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    overflow:hidden;
+    white-space: nowrap;
+    border: 1px solid black;
+}
+tr{
+    
+    padding: 0;
+    margin: 0;
+    border: 0;
+}
+
+.cTableRow {
+    display: flex;
+}
+
+.byte, .hbyte {
+    padding: 0;
+    margin: 0;
+    display: inline;
+    border-style: solid;
+    border-color: grey;
+    border-width: 1px 0px 0px 1px;
+    overflow:hidden;
+    white-space: pre;
 }
 
 .segment {

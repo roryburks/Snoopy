@@ -7,41 +7,60 @@ import {hexStr, asciiStr} from "./main";
 
 export class UIManager {
     data  : Uint8Array;
-    hexField : HTMLDivElement;
-    asciiField: HTMLDivElement;
+    hexField : HTMLCanvasElement;
+    asciiField: HTMLCanvasElement;
     scrollBar : HTMLDivElement;
     scrollField : HTMLDivElement;
     parsed : ParseStructure;
     filename : string;
 
+
     textDim : Dimension;
+    bytesPerLine : number;
+    visLines : number;
 
     constructor() {
-        this.hexField = $("#hexField").get(0) as HTMLDivElement;
-        this.asciiField = $("#asciiField").get(0) as HTMLDivElement;
+        this.hexField = $("#hexField").get(0) as HTMLCanvasElement;
+        this.asciiField = $("#asciiField").get(0) as HTMLCanvasElement;
         this.scrollBar = $("#efsContainer").get(0) as HTMLDivElement;
         this.scrollField = $("#efScroll").get(0) as HTMLDivElement;
 
         this.initComponents();
+        this.initBindings();
     }
 
-    private initComponents() {
-        var comp = window.getComputedStyle(this.hexField);
-
-        this.hexField.innerHTML = '<pre><span id="sizeTester">12</span></pre>';
-        var ele = $("#sizeTester");
+    private findTexDimensions() {
+        var context = this.hexField.getContext("2d");
+        context.font = "12px Courier New, Courier, monospace";
+        var metrics = context.measureText("12");
         this.textDim = {
-            width : ele.width(),
-            height :ele.height()
-        }
-        this.hexField.innerHTML = "";
-        var dim = this.textDim;
+            width : metrics.width,
+            height: 13
+        };
         
-        this.hexField.style.backgroundSize = (dim.width) + "px " + (dim.height) +"px";
-        this.asciiField.style.backgroundSize = (dim.width/2) + "px " + (dim.height) +"px";
+        var w = $(this.hexField).width();
+        var h = $(this.hexField).height();
+        this.bytesPerLine = Math.max(1, Math.floor(w/this.textDim.width))-1;
+        this.visLines = Math.max( 1, Math.floor(h/this.textDim.height)); 
+    }
+    
+    private initComponents() {
 
+        this.rebuildHexTables();
+    }
+
+    private rebuildHexTables() {
+        this.findTexDimensions();
+
+        this.hexField.width = this.hexField.clientWidth;
+        this.hexField.height = this.hexField.clientHeight;
+        this.asciiField.width = this.asciiField.clientWidth;
+        this.asciiField.height = this.asciiField.clientHeight;
+    }
+
+    private initBindings() {
         this.scrollBar.onscroll = (evt : Event) => {
-            this.buildFromData();
+            this.renderFields();
         }
 
         // Bind input in the not-actually-moving hex and ascii fields into the scrollBar
@@ -61,6 +80,29 @@ export class UIManager {
         }
         $(this.hexField).bind("wheel",f);
         $(this.asciiField).bind("wheel",f);
+
+        $(this.hexField).click(
+            ((evt : JQueryEventObject) : any => {
+                var me = (evt.originalEvent as MouseEvent);
+
+                var seg = this.getSegmentFromOffset( this.getOffsetFromPos(
+                    evt.pageX - $(this.hexField).offset().left, 
+                    evt.pageY - $(this.hexField).offset().top, true));
+
+                if(seg) 
+                    boundSetSegmentField.apply(seg);
+            }).bind(this)
+        );
+        $(this.asciiField).click(
+            ((evt : JQueryEventObject) : any => {
+                var me = (evt.originalEvent as MouseEvent);
+                var seg = this.getSegmentFromOffset( this.getOffsetFromPos(
+                    evt.pageX - $(this.asciiField).offset().left, 
+                    evt.pageY - $(this.asciiField).offset().top, false));
+                if(seg)
+                    boundSetSegmentField.apply(seg);
+            }).bind(this)
+        );
     }
 
     assosciateData( data : Uint8Array, filename : string) {
@@ -83,92 +125,126 @@ export class UIManager {
 
         // TODO : Make sure segments are non-overlapping, sorted in order.
         
-        var w = $(this.hexField).width();
+        // Adjust the size of the scrollField
         var dim = this.textDim;
-        var charPerLine = Math.max(1, Math.floor(w/dim.width))-1;
-        var numLines = Math.max( 1, Math.ceil(this.data.byteLength / charPerLine));
+        var numLines = Math.max( 1, Math.ceil(this.data.byteLength / this.bytesPerLine));
         this.scrollField.style.height = (dim.height * numLines) + "px";
 
-        this.buildFromData();
+        this.renderFields();
     }
 
-    /** Builds only the visible Hex/ASCII field instead of all of it.  This prevents 
-     * obnoxiously long UI waiting and rendering.
-     */
-    private buildFromData() {
+    public getOffsetFromPos( x:number, y:number, hex : boolean) : number {
+        var dim = this.textDim;
+        var startLine = Math.ceil(this.scrollBar.scrollTop / dim.height);
+        
+        return startLine*this.bytesPerLine 
+            + Math.floor(x / ((hex)?dim.width:(dim.width/2))) 
+            + Math.floor(y / dim.height) * this.bytesPerLine;
+    }
+
+    public getSegmentFromOffset( index : number) : Segment {
+        if( !this.parsed || !this.parsed.segments) return null;
+
+        for( var i=0; i<this.parsed.segments.length; ++i) {
+            var seg = this.parsed.segments[i];
+            if( seg.start <= index && seg.start + seg.length > index)
+                return seg;
+        }
+
+        return null;
+    }
+
+    private renderFields() {
+        var actx = this.asciiField.getContext("2d");
+        var hctx = this.hexField.getContext("2d");
+
+        actx.font = "12px Courier New, Courier, monospace";
+        actx.fillStyle = "#AAAAAA";
+        actx.fillRect( 0, 0, $(this.asciiField).width(), $(this.asciiField).height());
+
+        hctx.font = "12px Courier New, Courier, monospace";
+        hctx.fillStyle = "#AAAAAA";
+        hctx.fillRect( 0, 0, $(this.hexField).width(), $(this.hexField).height());
+
         
         // Determing the dimensions necessary for constructing the fields
         var dim = this.textDim;
         var w = $(this.hexField).width();
         var h = $(this.hexField).height();
-        var charPerLine = Math.max(1, Math.floor(w/dim.width))-1;
-        var numLines = Math.max( 1, Math.ceil(this.data.byteLength / charPerLine));
-        var visLines = Math.max( 1, Math.ceil(h/dim.height));
+        var dim = this.textDim;
+        var numLines = Math.max( 1, Math.ceil(this.data.byteLength / this.bytesPerLine));
         var startLine = Math.ceil(this.scrollBar.scrollTop / dim.height);
-        
-        var hex : string = "";
-        var ascii : string = "";
-        var line : string = "";
 
-        // Set up Segment-Arranging Variables
-        var segment : Segment = null;
-        var insegment = false;
-        var wseg = 0;   // Working Segment Index
-        if( this.parsed && this.parsed.segments.length > wseg) {
-            // Find first segment to start with.
-            segment = this.parsed.segments[wseg++];
+        var startByte = startLine * this.bytesPerLine;
+        var endByte = Math.min( this.data.length, startByte + this.bytesPerLine*this.visLines + startByte);
 
-            while( segment != null && segment.start+segment.length < startLine * charPerLine) 
-                segment = this.parsed.segments[wseg++];
-        }
-        hex += "<pre>"
-        ascii += "<pre>"
-        for( var i=startLine; i < startLine + visLines; ++i) {
-            var v : number;
-            for( var j=0; j<charPerLine; ++j) {
-                var index = i*charPerLine+j;
+        // Draw the segments
+        if( this.parsed && this.parsed.segments) {
+            for( var i=0; i < this.parsed.segments.length; ++i) {
+                var seg = this.parsed.segments[i];
+                if( seg.start < endByte && seg.start+seg.length > startByte) {
+                    var start =Math.floor((seg.start - startByte) / this.bytesPerLine); 
+                    var end = Math.floor((seg.start + seg.length - startByte) / this.bytesPerLine);
+                    for( var row=start; row <= end; ++row) {
+                        actx.fillStyle = seg.color;
+                        hctx.fillStyle = seg.color;
 
-                if( segment != null && !insegment && index >= segment.start) {
-                    var str = '<span class="segment '+ 'segment' + (wseg-1) + '" style="background-color:'+segment.color+';">';
-                    insegment = true;
-                    hex += str;
-                    ascii += str;
-                }
+                        var x1 = (row == start) ? (seg.start % this.bytesPerLine) : 0;
+                        var x2 = (row == end) ? ((seg.start + seg.length) % this.bytesPerLine) : (this.bytesPerLine + 1);
 
-                v = this.data[i*charPerLine+j];
-                if( v == undefined) break;
-                hex += hexStr(v);
-                ascii += asciiStr(v);
-
-                if( segment != null && insegment && index >= segment.start + segment.length - 1) {
-                    var str = '</span>';
-                    hex += str;
-                    ascii += str;
-                    if( this.parsed.segments.length > wseg) {
-                        segment = this.parsed.segments[wseg++];
-                        insegment = false;
+                        actx.fillRect( x1*dim.width/2, row*dim.height, (x2-x1)*dim.width/2, dim.height);
+                        hctx.fillRect( x1*dim.width, row*dim.height, (x2-x1)*dim.width, dim.height);
                     }
-                    else segment = null;
                 }
             }
-            hex += "<br />";
-            ascii += "<br />";
-            if( v == undefined) break;
         }
-        
-        if( insegment) {
-            hex += "</span>";
-            ascii += "</span>";
-        }
-        hex += "</pre>"
-        ascii += "</pre>"
-        
-        this.hexField.innerHTML = hex;
-        this.asciiField.innerHTML = ascii;
 
-        for( var i=0; i < this.parsed.segments.length; ++i) {
-            $('.segment' + i).click( boundSetSegmentField.bind(this.parsed.segments[i]));
+        // Draw Data Text
+        actx.fillStyle = "#000000";
+        actx.textBaseline = "hanging";
+        hctx.fillStyle = "#000000";
+        hctx.textBaseline = "hanging";
+        if( this.data) {
+            var x = 0, y = 0;
+            for( var index = startByte; index < endByte; ++index) {
+                actx.fillText( asciiStr(this.data[index]), x*this.textDim.width/2, y * this.textDim.height);
+                hctx.fillText( hexStr(this.data[index]), x*this.textDim.width, y * this.textDim.height);
+                ++x;
+                if( x > this.bytesPerLine) 
+                    {x = 0; ++y;}
+            }
+            
         }
+
+        // Draw Grid
+        var tw = this.textDim.width;
+        var tw2 = this.textDim.width/2;
+        var th = this.textDim.height;
+        hctx.lineWidth = 1;
+        actx.lineWidth = 1;
+        hctx.save();
+        actx.save();
+        hctx.translate(0.5,0.5);
+        actx.translate(0.5,0.5);
+        hctx.beginPath();
+        actx.beginPath();
+        for( x=1; x <= this.bytesPerLine; ++x) {
+            hctx.moveTo( Math.round(x*tw), 0);
+            actx.moveTo( Math.round(x*tw2), 0);
+            hctx.lineTo( Math.round(x*tw), Math.round(h));
+            actx.lineTo( Math.round(x*tw2), Math.round(h));
+        }
+        for( y=1; y <= this.visLines; ++y) {
+            hctx.moveTo( 0, Math.round(y*th));
+            actx.moveTo( 0, Math.round(y*th));
+            hctx.lineTo( Math.round(w), Math.round(y*th));
+            actx.lineTo( Math.round(w), Math.round(y*th));
+        }
+        hctx.stroke();
+        actx.stroke();
+        hctx.restore();
+        actx.restore();
+        console.log( this.bytesPerLine);
     }
     
 }
