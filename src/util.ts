@@ -18,7 +18,6 @@ export function getTextDimensions(text : string, font : string) : Dimension {
     var context = canvas.getContext("2d");
     context.font = font;
     var metrics = context.measureText(text);
-    console.log(metrics)
     return {
         width : metrics.width,
         height: parseInt(window.getComputedStyle(canvas, font).fontSize, 10)

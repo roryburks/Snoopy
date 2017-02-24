@@ -84,8 +84,6 @@ export abstract class HexComponent {
 export function boundSetSegmentField() {
     var seg = this as Segment;
 
-    console.log("TEST");
-
     var str : string = "";
 
     str += seg.descriptor + "<br />";

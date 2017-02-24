@@ -4,19 +4,11 @@ import {UIManager} from "./ui/uimanager";
 
 var manager : UIManager = new UIManager();
 
-
-function hello(compiler: string) {
-    console.log(`Hello from ${compiler}`);
-}
-hello("TypeScript");
-
 $("#btnStart").get(0).onclick = loadFile;
 
 document.addEventListener("selectionchange",function() {
     var sel = document.getSelection();
     var r = sel.getRangeAt(0);
-    
-    console.log(sel.anchorOffset);
 });
 
 /**
@@ -59,7 +51,6 @@ function hexStr( uint : number ) : string {
 export {hexStr};
 
 const _ascii = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
-console.log( _ascii.length);
 function asciiStr( uint : number) : string {
     if( uint < 32) return " ";
     if( uint < 127) 
