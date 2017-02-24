@@ -1,7 +1,7 @@
-import {BinaryReader} from "./binaryReader";
-import {hexStr} from "./main";
-import {ParseStructure, Parser, Segment} from "./parseStructure";
-import {Binding, DataBinding, NilBinding} from "./parseStructure";
+import {BinaryReader} from "../binaryReader";
+import {hexStr} from "../main";
+import {ParseStructure, Parser, Segment} from "../parsers/parseStructure";
+import {Binding, DataBinding, NilBinding} from "../parsers/parseStructure";
 
 class JPGParser extends Parser{
     error : string = "";

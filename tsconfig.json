@@ -1,6 +1,8 @@
 {
     "files": [
-        "src/*.ts"
+        "src/*.ts",
+        "src/parsers/*.ts",
+        "src/ui/*.ts"
     ],
     "compilerOptions": {
         "noImplicitAny": true,

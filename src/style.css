@@ -29,6 +29,7 @@ body {
     background-color: #00AA00;
     height: 500px;
     width: 100%;
+    overflow:hidden;
 }
 
 #editorField {
@@ -83,6 +84,7 @@ body {
 #segmentField {
     width: 100%;
     margin-top: 10px;
+    background-color: #DDDDDD;
 /*    overflow: scroll;*/
 }
 

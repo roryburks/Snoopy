@@ -1,6 +1,6 @@
-import {Segment, Parser} from "./parseStructure";
+import {Segment, Parser} from "./parsers/parseStructure";
 import {getFileExtension} from "./util";
-import {UIManager} from "./uimanager";
+import {UIManager} from "./ui/uimanager";
 
 var manager : UIManager = new UIManager();
 

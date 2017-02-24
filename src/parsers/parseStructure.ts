@@ -1,4 +1,4 @@
-import {BinaryReader} from "./binaryReader";
+import {BinaryReader} from "../binaryReader";
 
 /**
  * 

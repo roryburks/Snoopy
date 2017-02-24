@@ -1,7 +1,7 @@
-import {BinaryReader} from "./binaryReader";
+import {BinaryReader} from "../binaryReader";
 import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding}
      from "./parseStructure";
-import {randcolor} from "./util";
+import {randcolor} from "../util";
 
 const cSignature = "#a0a2de"
 
@@ -45,6 +45,9 @@ export class PNGParser extends Parser {
         switch( type) {
         case "IHDR": 
             data = new IHDRData(this.reader, start, len + 12);
+            break;
+        case "sRGB":
+            data = new sRGBData( this.reader, start, len + 12);
             break;
         default:
             data = new UnknownSegment(this.reader, start, len + 12, type);
@@ -153,5 +156,22 @@ class IHDRData extends SegmentData {
         seg.binding = bindings;
 
         return seg;
+    }
+}
+
+class sRGBData extends SegmentData {
+    constructor( reader : BinaryReader, start:number, len:number) {
+        super( reader, start, len);
+    }
+    constructSegment() : Segment {
+        var bindings : Binding[] = [];
+
+        return {
+            start : this.start,
+            length : this.length,
+            color : randcolor(),
+            binding : bindings,
+            descriptor : "sRGB Chunk"
+        };
     }
 }
