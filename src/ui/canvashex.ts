@@ -76,9 +76,7 @@ export class CanvasHexComponent  {
     buildingSel : Bound;
     bsStart : number;
     private startDrag( evt : MouseEvent, hex : boolean) {
-        var offset= this.getOffsetFromPos(
-            evt.pageX - $(this.hexField).offset().left, 
-            evt.pageY - $(this.hexField).offset().top, hex);
+        var offset= this.getOffsetFromPos( evt.pageX , evt.pageY , hex);
 
         // Start building the new selection
         this.bsStart = offset;
@@ -87,21 +85,20 @@ export class CanvasHexComponent  {
             this.selected.push(this.buildingSel);
         }
         else this.selected = [this.buildingSel];
-        this.selectionChanged();
 
         // Set the Segment Data in the Segment Field
         var seg = this.getSegmentFromOffset( offset);
         if(seg)
             this.context.setBoundSegment(seg);
+            
+        this.selectionChanged();
 
         this.redraw();
     }
     private continueDrag( evt : MouseEvent, hex : boolean) {
         if( !this.buildingSel) return;
 
-        var offset= this.getOffsetFromPos(
-            evt.pageX - $(this.hexField).offset().left, 
-            evt.pageY - $(this.hexField).offset().top, hex);
+        var offset= this.getOffsetFromPos( evt.pageX , evt.pageY , hex);
 
         // Continue building the selection
         if( offset < this.bsStart) {
@@ -139,6 +136,16 @@ export class CanvasHexComponent  {
     public getOffsetFromPos( x:number, y:number, hex : boolean) : number {
         var dim = this.textDim;
         var startLine = Math.ceil(this.context.scrollBar.scrollTop / dim.height);
+
+        if( hex) {
+            x -= $(this.hexField).offset().left;
+            y -= $(this.hexField).offset().top;
+        }
+        else {
+            x -= $(this.asciiField).offset().left;
+            y -= $(this.asciiField).offset().top;
+        }
+        
         
         return startLine*this.bytesPerLine 
             + Math.floor(x / ((hex)?dim.width:(dim.width/2))) 

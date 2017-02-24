@@ -10,6 +10,7 @@ export class UIManager {
     data  : Uint8Array;
     scrollBar : HTMLDivElement;
     scrollField : HTMLDivElement;
+    segmentField : HTMLDivElement;
     parsed : ParseStructure;
     filename : string;
 
@@ -22,6 +23,7 @@ export class UIManager {
         
         this.scrollBar = $("#efsContainer").get(0) as HTMLDivElement;
         this.scrollField = $("#efScroll").get(0) as HTMLDivElement;
+        this.segmentField = $("#segmentField").get(0) as HTMLDivElement;
 
         this.initComponents();
         this.initBindings();
@@ -71,6 +73,7 @@ export class UIManager {
 
     boundSegment : Segment;
     setBoundSegment( seg : Segment) {
+        if( this.boundSegment == seg) return;
         this.boundSegment = seg;
 
         var str : string = "";
@@ -85,7 +88,7 @@ export class UIManager {
                 }
                 else str += html;
             }
-            $('#segmentField').get(0).innerHTML = str;
+            $(this.segmentField).get(0).innerHTML = str;
             for( var i=0; i < seg.binding.length; ++i) {
                 if( seg.binding[i].binding) {
                     {
@@ -104,7 +107,7 @@ export class UIManager {
                 }
             }
         }
-        else $('#segmentField').get(0).innerHTML = str;
+        else $(this.segmentField).get(0).innerHTML = str;
     }
 
     private bindingClicked( index : number) {
@@ -120,21 +123,23 @@ export class UIManager {
     selectionChanged( selected : Bound[]) {
         if( !selected) return;
 
-        $(".sfSel").removeClass("sfSel");
-        
         var seg = this.boundSegment;
         if( seg && seg.binding) {
             for( var i=0; i < seg.binding.length; ++i) {
                 var b1 = seg.binding[i].binding;
                 if( !b1) continue;
 
+                var sel = false;
                 for( var j=0; j < selected.length; ++j) {
                     var b2 = selected[j];
-                    if( !b2) continue;
-                    if( b1.start > b2.start + b2.len || b1.start + b1.len < b2.start) 
+                    if( !b2 || b1.start > b2.start + b2.len-1 || b1.start + b1.len-1 < b2.start)
                         continue;
-
-                    $(".dbnd"+i).addClass("sfSel");
+                        
+                    sel = true;
+                    $(this.segmentField).find(".dbnd"+i).addClass("sfSel");
+                }
+                if( !sel) {
+                    $(this.segmentField).find(".dbnd"+i).removeClass("sfSel");
                 }
             }
         }
