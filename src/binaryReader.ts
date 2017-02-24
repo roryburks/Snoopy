@@ -107,7 +107,6 @@ class BitSeeker {
     reader : BinaryReader;
 
     constructor( reader : BinaryReader) {
-        console.log("new");
         this.reader = reader;
     }
     

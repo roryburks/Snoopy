@@ -3,6 +3,11 @@ import {BinaryReader} from "../binaryReader";
 /**
  * 
  */
+export class Bound {
+    start : number;
+    len : number;
+}
+
 export abstract class Parser {
     reader : BinaryReader;
 
@@ -22,21 +27,25 @@ export class Segment {
     binding : Binding[];
 }
 export interface Binding {
+    binding : Bound;
     getHTML() : string;
 }
 export class NilBinding implements Binding {
+    binding : Bound = null;
     html : string;
     constructor( html : string ) {
         this.html = html;
     }
     getHTML() { return this.html;}
 }
-export class DataBinding extends NilBinding {
-    start : number;
-    length : number;
+export class DataBinding implements Binding {
+    binding : Bound;
+    html : string;
     constructor( html : string, start : number, length : number) {
-        super(html);
-        this.start = start;
-        this.length = length;
+        this.html = html;
+        this.binding = {start:start, len:length};
+    }
+    getHTML() { 
+        return this.html;
     }
 }

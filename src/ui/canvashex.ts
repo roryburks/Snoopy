@@ -1,14 +1,11 @@
-import { UIManager, boundSetSegmentField} from "./uimanager";
+import { UIManager, HexComponent} from "./uimanager";
 import {Dimension, getTextDimensions} from "../util";
-import {Segment} from "../parsers/parseStructure";
+import {Segment, Bound} from "../parsers/parseStructure";
 import {hexStr, asciiStr} from "../main";
 
 
-class Bound {
-    start : number;
-    len : number;
-}
-export class CanvasHexComponent {
+
+export class CanvasHexComponent  {
     context : UIManager;
 
     hexField : HTMLCanvasElement;
@@ -90,14 +87,12 @@ export class CanvasHexComponent {
         // Set the Segment Data in the Segment Field
         var seg = this.getSegmentFromOffset( offset);
         if(seg)
-            boundSetSegmentField.apply(seg);
+            this.context.setBoundSegment(seg);
 
         this.redraw();
     }
     private continueDrag( evt : MouseEvent, hex : boolean) {
         if( !this.buildingSel) return;
-
-        console.log( this.buildingSel);
 
         var offset= this.getOffsetFromPos(
             evt.pageX - $(this.hexField).offset().left, 
@@ -223,6 +218,14 @@ export class CanvasHexComponent {
             }
         }
 
+        // Draw the Highlighted Area
+        if( this.highlighted) {
+            var color = "rgba( 160, 160, 190, 0.7)"
+            this.drawBound( this.highlighted, color, hctx, actx);
+
+        }
+
+
         // Draw the text that has been pre-rendered on the staging field, since "SOME BROWSERS"
         // (Firefox) are apparently horrible at drawing text
         hctx.drawImage( this.hexStage, 0, 0);
@@ -292,6 +295,8 @@ export class CanvasHexComponent {
 
         this.recalculateDims();
 
+        hctx.clearRect(0, 0, this.hexStage.width, this.hexStage.height);
+        actx.clearRect(0, 0, this.asciiStage.width, this.asciiStage.height);
         // Draw Data Text onto the staging Field
         actx.font = "12px Courier New, Courier, monospace";
         hctx.font = "12px Courier New, Courier, monospace";
@@ -313,4 +318,9 @@ export class CanvasHexComponent {
         this.redraw();
     }
 
+    highlighted : Bound;
+    setHighlighted( bound : Bound) {
+        this.highlighted = bound;
+        this.redraw();
+    }
 }

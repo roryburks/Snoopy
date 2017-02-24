@@ -343,7 +343,9 @@ class QuantTableData implements SegmentBuilder {
             bindings.push(new NilBinding('<tr class="matrixRow">'));
             for( var y=0; y<8; ++y) {
                 var index = x + y*8;
+                bindings.push( new NilBinding('<td class="matrixElement">'))
                 bindings.push( elements[index]);
+                bindings.push( new NilBinding('</td>'));
             }
             bindings.push(new NilBinding('</tr>'));
         }
@@ -356,7 +358,7 @@ class QuantTableData implements SegmentBuilder {
 
     private ele( x: number, y : number, elements : Binding[], entry : number, i : number, sizeof : number) {
         elements[x*8+y] = 
-        new DataBinding('<td class="matrixElement">'+entry+'</td>', this.start + 5 + sizeof * i, sizeof);
+        new DataBinding(""+entry, this.start + 5 + sizeof * i, sizeof);
     }
 }
 

@@ -1,7 +1,7 @@
 
 import {getFileExtension,Uint8ToString} from "../util";
 import {CanvasHexComponent} from "./canvashex";
-import {Parser, ParseStructure, Segment} from "../parsers/parseStructure";
+import {Parser, ParseStructure, Segment, Bound} from "../parsers/parseStructure";
 import {JPGParser} from "../parsers/parseJPG";
 import {PNGParser} from "../parsers/parsePNG";
 
@@ -13,7 +13,7 @@ export class UIManager {
     parsed : ParseStructure;
     filename : string;
 
-    hexComponent : HexComponent;
+    hexComponent : any;
 
 
 
@@ -41,8 +41,6 @@ export class UIManager {
             if( this.hexComponent)
                 this.hexComponent.updateData();
         }
-
-
     }
 
     assosciateData( data : Uint8Array, filename : string) {
@@ -62,8 +60,6 @@ export class UIManager {
             img.setAttribute("src", str);
             $("#visualField").append(img);
         }
-
-        // TODO : Make sure segments are non-overlapping, sorted in order.
         
         // Adjust the size of the scrollField
         var h = Math.max( $(this.scrollBar).height(), (this.hexComponent)?this.hexComponent.getScrollHeight():0);
@@ -72,6 +68,51 @@ export class UIManager {
         if( this.hexComponent)
             this.hexComponent.updateData();
     }
+
+    boundSegment : Segment;
+    setBoundSegment( seg : Segment) {
+        this.boundSegment = seg;
+
+        var str : string = "";
+
+        str += seg.descriptor + "<br />";
+
+        if( seg.binding) {
+            for( var i=0; i < seg.binding.length; ++i) {
+                var html = seg.binding[i].getHTML();
+                if( seg.binding[i].binding) {
+                    str += '<span class="dbnd'+i+'">' + html + '</span>';
+                }
+                else str += html;
+            }
+            $('#segmentField').get(0).innerHTML = str;
+            for( var i=0; i < seg.binding.length; ++i) {
+                if( seg.binding[i].binding) {
+                    {
+                        // Create a strictly-scoped copy of i so that bindingClicked is bound
+                        //  to a different one each time, instead of being bound to the itterating
+                        //  i which will always be seg.binding.length by the time the binding
+                        //  is ever called
+                        let ind = i;
+                        $(".dbnd"+ind).click( ((evt : JQueryEventObject) : any => {
+                            this.bindingClicked(ind);
+                        }).bind(this));
+                    }
+                }
+            }
+        }
+        else $('#segmentField').get(0).innerHTML = str;
+    }
+
+    bindingClicked( index : number) {
+        if( !this.boundSegment || index < 0 || !this.boundSegment.binding 
+            || this.boundSegment.binding.length <= index) 
+            return;
+
+        //
+        var bound = this.boundSegment.binding[index].binding;
+        if( this.hexComponent) this.hexComponent.setHighlighted(bound );
+    }
 }
 
 
@@ -79,23 +120,10 @@ export abstract class HexComponent {
     abstract rebuildHexTables() : void;
     abstract updateData() : void;
     abstract getScrollHeight() : number;
+    abstract setHighlighted( bound : Bound) : void;
 }
 
-export function boundSetSegmentField() {
-    var seg = this as Segment;
 
-    var str : string = "";
-
-    str += seg.descriptor + "<br />";
-
-    if( seg.binding) {
-        for( var i=0; i < seg.binding.length; ++i) {
-            str += seg.binding[i].getHTML();
-        }
-    }
-
-    $('#segmentField').get(0).innerHTML = str;
-}
 
 function getParserFromExtension( ext : string, buffer : Uint8Array) {
     switch( ext) {
