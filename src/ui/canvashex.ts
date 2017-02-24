@@ -69,6 +69,10 @@ export class CanvasHexComponent  {
         }).bind(this));
     }
 
+    private selectionChanged() {
+        this.context.selectionChanged( this.selected);
+    }
+
     buildingSel : Bound;
     bsStart : number;
     private startDrag( evt : MouseEvent, hex : boolean) {
@@ -83,6 +87,7 @@ export class CanvasHexComponent  {
             this.selected.push(this.buildingSel);
         }
         else this.selected = [this.buildingSel];
+        this.selectionChanged();
 
         // Set the Segment Data in the Segment Field
         var seg = this.getSegmentFromOffset( offset);
@@ -107,6 +112,7 @@ export class CanvasHexComponent  {
             this.buildingSel.start = this.bsStart;
             this.buildingSel.len = offset - this.bsStart + 1;
         }
+        this.selectionChanged();
 
         this.redraw();
     }

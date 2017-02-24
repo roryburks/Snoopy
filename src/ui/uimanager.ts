@@ -94,9 +94,12 @@ export class UIManager {
                         //  i which will always be seg.binding.length by the time the binding
                         //  is ever called
                         let ind = i;
-                        $(".dbnd"+ind).click( ((evt : JQueryEventObject) : any => {
+
+                        var ele = $(".dbnd"+ind);
+                        ele.click( ((evt : JQueryEventObject) : any => {
                             this.bindingClicked(ind);
                         }).bind(this));
+                        ele.addClass("sfInt");
                     }
                 }
             }
@@ -104,7 +107,7 @@ export class UIManager {
         else $('#segmentField').get(0).innerHTML = str;
     }
 
-    bindingClicked( index : number) {
+    private bindingClicked( index : number) {
         if( !this.boundSegment || index < 0 || !this.boundSegment.binding 
             || this.boundSegment.binding.length <= index) 
             return;
@@ -112,6 +115,29 @@ export class UIManager {
         //
         var bound = this.boundSegment.binding[index].binding;
         if( this.hexComponent) this.hexComponent.setHighlighted(bound );
+    }
+
+    selectionChanged( selected : Bound[]) {
+        if( !selected) return;
+
+        $(".sfSel").removeClass("sfSel");
+        
+        var seg = this.boundSegment;
+        if( seg && seg.binding) {
+            for( var i=0; i < seg.binding.length; ++i) {
+                var b1 = seg.binding[i].binding;
+                if( !b1) continue;
+
+                for( var j=0; j < selected.length; ++j) {
+                    var b2 = selected[j];
+                    if( !b2) continue;
+                    if( b1.start > b2.start + b2.len || b1.start + b1.len < b2.start) 
+                        continue;
+
+                    $(".dbnd"+i).addClass("sfSel");
+                }
+            }
+        }
     }
 }
 
