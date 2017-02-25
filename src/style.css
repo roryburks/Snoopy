@@ -116,10 +116,18 @@ tr{
 /* sfInt is a class for flagging interactable components of the Segment Field */
 .sfInt {
     border: 1px dotted darkblue;
+    
 }
 /* sfSel is an interactable component whose data is currently selected in the HexComponent */
 .sfSel {
     background-color: #8899CC;
+}
+
+.colorBox {
+    display : inline-block;
+    width: 16px;
+    height: 16px;
+    border : 1px solid black;
 }
 
 .byte, .hbyte {

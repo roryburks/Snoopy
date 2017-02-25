@@ -30,8 +30,27 @@ class BinaryReader {
         this.seeker += 2;
         return n;
     }
+    readUShortLE() : number {
+        if( this.seeker + 1 >= this.buffer.length)
+            return undefined;
+        var n = this.buffer[this.seeker+1] << 8 |
+                this.buffer[this.seeker];
+
+        this.seeker += 2;
+        return n;
+    }
+    /** Reads 3 bytes as an int32 packed as RGB; essentially readUint24 */
+    readRGB() : number {
+        if( this.seeker + 3 > this.buffer.length)
+            return undefined;
+        var n = this.buffer[this.seeker] << 16 |
+                this.buffer[this.seeker+1] << 8 |
+                this.buffer[this.seeker+2];
+        this.seeker += 3;
+        return n >>> 0;
+    }
     readUInt() : number {
-        if( this.seeker + 3 >= this.buffer.length)
+        if( this.seeker + 4 > this.buffer.length)
             return undefined;
         var n = this.buffer[this.seeker] << 24 |
                 this.buffer[this.seeker+1] << 16 |

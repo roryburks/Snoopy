@@ -49,3 +49,9 @@ export class DataBinding implements Binding {
         return this.html;
     }
 }
+
+/** A Cell Binding is a specific Binding for <td> cells to tell the Segment UI constructor
+ * it has to wrap them.  Because HTML renderers are terrible at rendering something as simple 
+ * as a grid.
+ */
+export class CellBinding extends DataBinding{}

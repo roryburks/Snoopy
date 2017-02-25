@@ -1,9 +1,10 @@
 
 import {getFileExtension,Uint8ToString} from "../util";
 import {CanvasHexComponent} from "./canvashex";
-import {Parser, ParseStructure, Segment, Bound} from "../parsers/parseStructure";
+import {Parser, ParseStructure, Segment, Bound, CellBinding} from "../parsers/parseStructure";
 import {JPGParser} from "../parsers/parseJPG";
 import {PNGParser} from "../parsers/parsePNG";
+import {GIFParser} from "../parsers/parseGIF";
 
 
 export class UIManager {
@@ -84,7 +85,10 @@ export class UIManager {
             for( var i=0; i < seg.binding.length; ++i) {
                 var html = seg.binding[i].getHTML();
                 if( seg.binding[i].binding) {
-                    str += '<span class="dbnd'+i+'">' + html + '</span>';
+                    if( seg.binding[i] instanceof CellBinding)
+                        str += '<td class="dbnd'+i+'">' + html + '</td>';
+                    else 
+                        str += '<span class="dbnd'+i+'">' + html + '</span>';
                 }
                 else str += html;
             }
@@ -159,7 +163,8 @@ export abstract class HexComponent {
 function getParserFromExtension( ext : string, buffer : Uint8Array) {
     switch( ext) {
         case "jpg": case "jpeg": return new JPGParser(buffer);
-        case "png": return new PNGParser(buffer);
+        case "png": return new PNGParser(buffer) ;
+        case "gif": return new GIFParser(buffer) ;
         default: return null;
     }
 }

@@ -1,9 +1,8 @@
 import {BinaryReader} from "../binaryReader";
 import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding}
      from "./parseStructure";
+import {ParseColors} from "./colors";
 import {randcolor} from "../util";
-
-const cSignature = "#a0a2de"
 
 export class PNGParser extends Parser {
     parsed : ParseStructure;
@@ -31,7 +30,7 @@ export class PNGParser extends Parser {
         this.parsed.segments.push( {
             start : 0,
             length : 8,
-            color : cSignature,
+            color : ParseColors.header,
             binding : [],
             descriptor : "PNG Signature"
         });
