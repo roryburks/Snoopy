@@ -112,6 +112,9 @@ tr{
     display: flex;
 }
 
+.comment {
+    color: #006600;
+}
 
 /* sfInt is a class for flagging interactable components of the Segment Field */
 .sfInt {
