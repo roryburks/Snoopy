@@ -126,6 +126,11 @@ tr{
     background-color: #8899CC;
 }
 
+.chunkDesc {
+    font-size: 10px;
+    font-weight:  bold;
+}
+
 .colorBox {
     display : inline-block;
     width: 16px;

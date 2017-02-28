@@ -51,7 +51,7 @@ export class GIFParser extends Parser {
                     var cTable = new ColorTable( this.reader, this.reader.getSeek(), this, imgDesc.ctableSize);
                     this.parsed.segments.push( cTable.constructSegment());
                 }
-                var imgData = new ImageData( this.reader, start, this);
+                var imgData = new ImageData( this.reader, this.reader.getSeek(), this);
                 this.parsed.segments.push( imgData.constructSegment());
             }
             else {
@@ -232,21 +232,21 @@ class ImageDescriptor extends SegmentData {
         var bindings :Binding[] = [];
 
         bindings.push( new NilBinding( "Offset: "));
-        bindings.push( new DataBinding("" + this.left, this.start + 3, 2));
+        bindings.push( new DataBinding("" + this.left, this.start + 1, 2));
         bindings.push( new NilBinding( " x "));
-        bindings.push( new DataBinding("" + this.top, this.start + 5, 2));
+        bindings.push( new DataBinding("" + this.top, this.start + 3, 2));
         bindings.push( new NilBinding( "<br />Size: "));
-        bindings.push( new DataBinding("" + this.width, this.start + 7, 2));
+        bindings.push( new DataBinding("" + this.width, this.start + 5, 2));
         bindings.push( new NilBinding( " x "));
-        bindings.push( new DataBinding("" + this.height, this.start + 9, 2));
+        bindings.push( new DataBinding("" + this.height, this.start + 7, 2));
         bindings.push( new NilBinding( "<br />Has Local Color Table: "));
-        bindings.push( new DataBinding( ""+this.hasColorTable, this.start + 11, 1));
+        bindings.push( new DataBinding( ""+this.hasColorTable, this.start + 9, 1));
         bindings.push( new NilBinding( "<br />Color Table Size: "));
-        bindings.push( new DataBinding( ""+this.ctableSize, this.start + 11, 1));
+        bindings.push( new DataBinding( ""+this.ctableSize, this.start + 9, 1));
         bindings.push( new NilBinding( "<br />Is Sorted: "));
-        bindings.push( new DataBinding( ""+this.sorted, this.start + 11, 1));
+        bindings.push( new DataBinding( ""+this.sorted, this.start + 9, 1));
         bindings.push( new NilBinding( "<br />Interlaced: "));
-        bindings.push( new DataBinding( ""+this.interlaced, this.start + 11, 1));
+        bindings.push( new DataBinding( ""+this.interlaced, this.start + 9, 1));
 
         return {
             start : this.start,
@@ -305,7 +305,7 @@ class ColorTable extends SegmentData {
     constructSegment() : Segment {
         var bindings : Binding[] = [];
 
-        var n = Math.max( Math.sqrt(this.size));
+        var n = Math.ceil( Math.sqrt(this.size));
 
         bindings.push( new NilBinding('<table class="colorTable">'));
         for( var row=0; row < n; ++row) {
@@ -313,6 +313,7 @@ class ColorTable extends SegmentData {
             bindings.push( new NilBinding('<td>'+row*n+'-'+(row*n+n-1)+'</td>'));
             for( var col=0; col < n; ++col) {
                 var index = row*n + col;
+                if( index >= this.size)break;
                 var color = ParseColors.rbgToString(this.table[index]);
                 bindings.push( new CellBinding('<div class="colorBox" style="background-color:'+color+'"></div>', this.start + index*3, 3));
             }
