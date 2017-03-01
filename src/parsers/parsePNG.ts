@@ -117,7 +117,7 @@ class ImageData extends SegmentData {
         return {
             start : this.start,
             length : this.length,
-            color : randcolor(),
+            color : ParseColors.cyclingColor(ParseColors._data),
             binding : bindingsForChunk("IDAT", this.start, this.length, []),
             descriptor : "Image Data Stream"
         };
@@ -369,7 +369,7 @@ class PLTEData extends SegmentData {
             for( var col=0; col < n; ++col) {
                 var index = row*n + col;
                 if( index >= this.size)break;
-                var color = ParseColors.rbgToString(this.colors[index]);
+                var color = ParseColors.rgbToString(this.colors[index]);
                 bindings.push( new CellBinding('<div class="colorBox" style="background-color:'+color+'"></div>', this.start + index*3, 3));
             }
             bindings.push( new NilBinding('</tr>'));
@@ -379,7 +379,7 @@ class PLTEData extends SegmentData {
         return {
             start : this.start,
             length : this.length,
-            color : randcolor(),
+            color : ParseColors.palette,
             binding : bindingsForChunk("PLTE", this.start, this.length, bindings),
             descriptor : "Palette Chunk"
         };

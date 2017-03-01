@@ -31,3 +31,9 @@ export function Uint8ToString(u8a : Uint8Array) : string{
     }
     return c;
 }
+
+export function hexByteStr( hex : number) : string {
+    var str = (hex&0xFF).toString(16);
+    while( str.length < 2) str = "0"+str;
+    return str;
+}

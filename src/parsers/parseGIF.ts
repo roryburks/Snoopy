@@ -314,7 +314,7 @@ class ColorTable extends SegmentData {
             for( var col=0; col < n; ++col) {
                 var index = row*n + col;
                 if( index >= this.size)break;
-                var color = ParseColors.rbgToString(this.table[index]);
+                var color = ParseColors.rgbToString(this.table[index]);
                 bindings.push( new CellBinding('<div class="colorBox" style="background-color:'+color+'"></div>', this.start + index*3, 3));
             }
             bindings.push( new NilBinding('</tr>'));
@@ -324,7 +324,7 @@ class ColorTable extends SegmentData {
         return {
             start: this.start,
             length : this.size * 3,
-            color : "#bb9999",
+            color : ParseColors.palette,
             binding : bindings,
             descriptor : "Color Table"
         };
@@ -387,7 +387,7 @@ class HeaderSegment extends SegmentData {
         bindings.push( new NilBinding(' (largest bit)<br />BG Color Index: '));
         var color = (this.context.globalTable) ? this.context.globalTable.table[this.bgColorIndex] : 0;
         console.log( this.bgColorIndex + ":" + this.context.globalTable);
-        bindings.push( new DataBinding(""+this.bgColorIndex + '<span class="colorBox" style="background-color:'+ParseColors.rbgToString(color)+'"></span>', 11, 1));
+        bindings.push( new DataBinding(""+this.bgColorIndex + '<span class="colorBox" style="background-color:'+ParseColors.rgbToString(color)+'"></span>', 11, 1));
         bindings.push( new NilBinding('<br />Pixel Aspect Ratio: ' ));
         bindings.push( new DataBinding((this.pixelAspectRatio == 0)?"1:1":"nonzero value: I don't actually know what this means.", 12, 1));
 

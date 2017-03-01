@@ -1,11 +1,15 @@
 import {BinaryReader} from "../binaryReader";
 import {hexStr} from "../main";
+import {hexByteStr} from "../util";
 import {ParseStructure, Parser, Segment} from "../parsers/parseStructure";
-import {Binding, DataBinding, NilBinding} from "../parsers/parseStructure";
+import {Binding, DataBinding, NilBinding, CellBinding} from "../parsers/parseStructure";
+import {ParseColors} from "./colors";
 
 class JPGParser extends Parser{
     error : string = "";
     parsed : ParseStructure;
+
+    sos : SOSData;
 
     constructor( buffer : Uint8Array) {
         super(buffer);
@@ -60,23 +64,38 @@ class JPGParser extends Parser{
             break;
         case 0xE2:case 0xE3:case 0xE4:case 0xE5:case 0xE6:case 0xE7:case 0xE8:
         case 0xE9:case 0xEA:case 0xEB:case 0xEC:case 0xED:case 0xEE:case 0xEF:
-            var appndata = new UnknownAPPNData();
+            var appndata = new UnknownAPPNData(reader,start,len+2);
             appndata.n =  (marker - 0xE0);
-            this.parsed.segments.push(appndata.constructSegment(reader,start,len+2));
+            this.parsed.segments.push(appndata.constructSegment());
             break;
         case 0xC0:
-            var sofdata = new SOFData();
-            this.parsed.segments.push(sofdata.constructSegment(reader,start,len+2));
+            var sofdata = new SOFData(reader,start,len+2);
+            this.parsed.segments.push(sofdata.constructSegment());
             break;
         case 0xC4:
-            var huffdata = new HuffmanData();
-            this.parsed.segments.push(huffdata.constructSegment(reader,start,len+2));
+            this.parsed.segments.push( markerSegment(0xC4, start, len, "Huffman Table Marker"));
+            while( (start + len + 2)-this.reader.getSeek() > 0) {
+                var huffdata = new HuffmanData(reader,this.reader.getSeek(),-1);
+                this.parsed.segments.push(huffdata.constructSegment());
+            }
             break;
-//        case 0xDA:
-//            return this.parseSOS();
+        case 0xDA:
+            this.sos = new SOSData( reader, start, len);
+            this.parsed.segments.push(this.sos.constructSegment());
+            this.parsed.segments.push({
+                start: this.reader.getSeek(),
+                length: this.reader.getLength() - this.reader.getSeek(),
+                color: ParseColors.data,
+                binding: [],
+                descriptor: "Image Data"
+            })
+            return false;
         case 0xDB:
-            var qtdata = new QuantTableData();
-            this.parsed.segments.push(qtdata.constructSegment(reader,start,len+2));
+            this.parsed.segments.push( markerSegment(0xDB, start, len, "Quantization Table Marker"));
+            while( (start + len + 2)-this.reader.getSeek() > 0) {
+                var qtdata = new QuantTableData(reader,this.reader.getSeek(),-1);
+                this.parsed.segments.push(qtdata.constructSegment());
+            }
             break;
         case 0xD9:
             this.parsed.segments.push({
@@ -124,8 +143,8 @@ class JPGParser extends Parser{
         var identifier = reader.readUTF8Str();
 
         if( identifier == "JFIF") {
-            var data = new JFIFData();
-            this.parsed.segments.push( data.constructSegment(reader,start,length));
+            var data = new JFIFData(reader,start,length);
+            this.parsed.segments.push( data.constructSegment());
         }
         else if( identifier == "JFXX") {
             console.log( "JFXX: Unimplemented");
@@ -142,8 +161,8 @@ class JPGParser extends Parser{
         var identifier = reader.readUTF8Str();
 
         if( identifier == "Exif") {
-            var data = new EXIFData();
-            this.parsed.segments.push( data.constructSegment(reader,start,length));
+            var data = new EXIFData(reader,start,length);
+            this.parsed.segments.push( data.constructSegment());
         }
         return true;
     }
@@ -154,20 +173,46 @@ class JPGParser extends Parser{
 }
 export {JPGParser}
 
-interface SegmentBuilder {
-    start : number;
-    length : number;
-    constructSegment(reader : BinaryReader, start:number, len:number) : Segment;
+function markerSegment(marker : number, start: number, len: number, descriptor:string) : Segment {
+    var bindings : Binding[] = [];
+
+    bindings.push( new NilBinding("Marker:"));
+    bindings.push( new DataBinding(""+hexByteStr(marker), start+1, 1));
+    bindings.push( new NilBinding(" length:"));
+    bindings.push( new DataBinding(""+len, start+2, 2));
+
+    return {
+        start: start, 
+        length: 4,
+        binding:bindings, 
+        color: ParseColors.marker, 
+        descriptor: descriptor
+    }
 }
 
-class UnknownAPPNData implements SegmentBuilder {
+abstract class SegmentBuilder {
     start : number;
     length : number;
+    reader : BinaryReader;
+    constructor(reader : BinaryReader, start:number, len:number) {
+        this.reader = reader;
+        this.start = start;
+        this.length = len;
+    }
+    abstract constructSegment() : Segment;
+}
+
+class UnknownAPPNData extends SegmentBuilder {
     n : number;
-    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
+    
+    constructor(reader : BinaryReader, start:number, len:number) {
+        super(reader, start, len);
+    }
+
+    constructSegment() : Segment {
         var seg = new Segment();
-        seg.start = start;
-        seg.length = len;
+        seg.start = this.start;
+        seg.length = this.length;
         seg.color = "#AAAAAA";
         seg.descriptor = "Unknown Application-Specific Data"
 
@@ -175,9 +220,7 @@ class UnknownAPPNData implements SegmentBuilder {
     }
 }
 
-class JFIFData implements SegmentBuilder {
-    start : number;
-    length : number;
+class JFIFData extends SegmentBuilder {
     versionMajor : number;
     versionMinor : number;
     pixelDensityUnits : number;
@@ -187,9 +230,10 @@ class JFIFData implements SegmentBuilder {
     yThumbnail : number;
     thumbnailData : Uint8Array;
 
-    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
-        this.start = start;
-        this.length = len
+    
+    constructor(reader : BinaryReader, start:number, len:number) {
+        super(reader, start, len);
+        
         this.versionMajor = reader.readByte();
         this.versionMinor = reader.readByte();
         this.pixelDensityUnits = reader.readByte();
@@ -200,6 +244,9 @@ class JFIFData implements SegmentBuilder {
         if( this.xThumbnail * this.yThumbnail > 0) {
             this.thumbnailData = reader.readBytes(this.xThumbnail*this.yThumbnail*3);
         }
+    }
+
+    constructSegment() : Segment {
 
         var seg = new Segment();
         var str; 
@@ -242,15 +289,17 @@ class JFIFData implements SegmentBuilder {
     }
 }
 
-class EXIFData  implements SegmentBuilder{
-    start : number;
-    length : number;
+class EXIFData  extends SegmentBuilder{
+    
+    constructor(reader : BinaryReader, start:number, len:number) {
+        super(reader, start, len);
+    }
 
 
-    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
+    constructSegment() : Segment {
         var seg = new Segment();
-        seg.start = start;
-        seg.length = len;
+        seg.start = this.start;
+        seg.length = this.length;
         seg.color = "#26a89d";
         seg.descriptor = "Exif Data";
 
@@ -258,18 +307,17 @@ class EXIFData  implements SegmentBuilder{
     }
 }
 
-class QuantTableData implements SegmentBuilder {
-    start : number;
-    length : number;
+class QuantTableData extends SegmentBuilder {
     highPrec : boolean;
     dest : number;
     table8 : Uint8Array;
     table16 : Uint16Array;
 
-    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
+    constructor(reader : BinaryReader, start:number, len:number) {
+        super(reader, start, len);
+
+        
         var info = reader.readByte();
-        this.start = start;
-        this.length = len;
         this.highPrec = (info >> 4) ? true : false;
         this.dest = info & 0xF;
 
@@ -278,18 +326,22 @@ class QuantTableData implements SegmentBuilder {
             for( var i=0; i<64; ++i) {
                 this.table16[i] = reader.readUShort();
             }
+            this.length = 2*64+1;
         }
         else {
             this.table8 = new Uint8Array(64);
             for( var i=0; i<64; ++i) {
                 this.table8[i] = reader.readByte();
             }
+            this.length = 64+1;
         }
+    }
 
+    constructSegment() : Segment {
         var seg = new Segment();
-        seg.start = start;
-        seg.length = len;
-        seg.color = "#b2748a";
+        seg.start = this.start;
+        seg.length = this.length;
+        seg.color = ParseColors.cyclingColor(0xb2748a);
         seg.descriptor = "Quantization Table Data";
         
         
@@ -334,9 +386,9 @@ class QuantTableData implements SegmentBuilder {
 
         var bindings : Binding[] = [];
 
-        bindings.push( new DataBinding((this.highPrec)?"16-bit Table":"8-bit Table"+" (High Nibble)", this.start+4,1));
+        bindings.push( new DataBinding((this.highPrec)?"16-bit Table":"8-bit Table"+" (High Nibble)", this.start,1));
         bindings.push( new NilBinding('<br />Destination: '));
-        bindings.push( new DataBinding(""+(this.dest) + " (Low Nibble)", this.start+4,1));
+        bindings.push( new DataBinding(""+(this.dest) + " (Low Nibble)", this.start,1));
         bindings.push(new NilBinding('<br />Table:<br />'));
         bindings.push( new NilBinding('<div class="matrix"><span class="matrixLeft"></span><table class="matrixContent">'));
         for( var x=0; x<8; ++x) {
@@ -358,13 +410,11 @@ class QuantTableData implements SegmentBuilder {
 
     private ele( x: number, y : number, elements : Binding[], entry : number, i : number, sizeof : number) {
         elements[x*8+y] = 
-        new DataBinding(""+entry, this.start + 5 + sizeof * i, sizeof);
+        new DataBinding(""+entry, this.start + 1 + sizeof * i, sizeof);
     }
 }
 
-class SOFData implements SegmentBuilder {
-    start : number;
-    length : number;
+class SOFData extends SegmentBuilder {
     precision : number;
     width: number;
     height : number;
@@ -372,10 +422,10 @@ class SOFData implements SegmentBuilder {
     cField : number[] = [];
     cFactor : number[] = [];
     cQTable : number[] = [];
-    
-    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
-        this.start = start;
-        this.length = len;
+
+    constructor(reader : BinaryReader, start:number, len:number) {
+        super(reader, start, len);
+
         this.precision = reader.readByte();
         this.width = reader.readUShort();
         this.height = reader.readUShort();
@@ -386,7 +436,10 @@ class SOFData implements SegmentBuilder {
             this.cFactor[i] = reader.readByte();
             this.cQTable[i] = reader.readByte();
         }
-
+    }
+    
+    constructSegment() : Segment {
+        var start = this.start;
         var seg = new Segment();
         seg.color = "#814a8c";
         seg.descriptor = "Start of Frame 0";
@@ -423,63 +476,88 @@ class SOFData implements SegmentBuilder {
         }
 
         seg.binding = bindings;
-        
 
         return seg;
     }
 }
 
-class HuffmanData implements SegmentBuilder {
-    start : number;
-    length : number;
-    id : number;
+class HuffmanData extends SegmentBuilder {
+    y : boolean;
     dc : boolean;
+    id : number;
     numPerRow : number[] = new Array(16);
     table : number[][] = new Array(16);
     codes : Uint16Array;
+    raw : Uint8Array;
 
-    constructSegment(reader : BinaryReader, start:number, len:number) : Segment {
-        this.start = start;
-        this.length = len;
+    minCode = new Uint16Array(16);
+    maxCode = new Uint16Array(16);
+    valPtr = new Uint16Array(16);
+    
+    constructor(reader : BinaryReader, start:number, len:number) {
+        super(reader, start, len);
 
         var byte = reader.readByte();
 
-        this.id = byte & 0x7;
-        this.dc = (((byte >> 3)&0x1) == 0);
+        this.id = byte;
+        this.y = (byte & 0x1) == 0;
+        this.dc = (((byte >> 4)&0x1) == 0);
 
+        var count = 0;
         for( var i=0; i<16; ++i) {
             this.numPerRow[i] = reader.readByte();
+            count += this.numPerRow[i];
         }
 
-//        var bs  = new BitSeeker(reader);
+        this.raw = reader.readBytes(count);
 
-        for( var i=0; i<16; ++i) {
-            var n = this.numPerRow[i];
-            this.table[i] = new Array(n);
-            for( var j=0; j<n; ++j) {
-//                this.table[i][j] = bs.readBits(i+1);
-            }
-        }
+        this.length = 17+count;
+
+        this.constructHuffmanCodes();
+    }
+
+    constructSegment() : Segment {
 
         var seg = new Segment();
-        seg.start = start;
-        seg.length = len;
-        seg.color = "#9b4444";
+        seg.start = this.start;
+        seg.length = this.length;
+        seg.color = ParseColors.cyclingColor(0x9b4444);
         seg.descriptor = "Huffman Table";
 
         var bindings : Binding[] = [];
 
+        bindings.push( new NilBinding('Huffman Table Destination:'))
+        var str = "" + this.id + "(";
+        str += (this.y) ? '<span class="htt">Y<span class="ttt">Luminosity</span></span>':'Color';
+        str += " ";
+        str +=(this.dc) 
+            ? '<span class="htt">DC<span class="ttt">Direct Current Terms of Discrete Cosine Transform</span></span>'
+            :'<span class="htt">AC<span class="ttt">Alternating Current Terms of Discrete Cosine Transform</span></span>';
+        str += ")";
+        bindings.push( new DataBinding(str, this.start, 1));
+
+        var index = 0;
+        bindings.push( new NilBinding( '<table class="simpleTable"><tr><th style="font-size:10px">Bit<br />Length</th><th>Byte the code is mapped to (mouse over for the code)</th></tr>'));
         for( var i=0; i<16; ++i) {
             var n = this.numPerRow[i];
-                bindings.push( new NilBinding((i+1)+":"));
+            bindings.push( new NilBinding( '<tr>'));
+            bindings.push( new CellBinding('<div class="htt">'+(i+1)+': <span class="ttt">File stores how many entries of length '+(i+1)+' that need to be mapped.</span></div>', this.start + 1 + i, 1));
+            bindings.push( new NilBinding( '<td>'));
             for( var j=0; j<n; ++j) {
-                var str = (this.table[i][j]>>>0).toString(2);
+                var binstr = (this.codes[index]>>>0).toString(2);
+                var hexstr = this.raw[index].toString(16);
 
-                while( str.length < (i+1)) str = "0"+str;
-                bindings.push( new NilBinding( str+ " "));
+                while( binstr.length < (i+1)) binstr = "0"+binstr;
+                while( hexstr.length < 2) hexstr = "0" + hexstr;
+
+
+                bindings.push( new DataBinding( '<div class="htt">'+ hexstr + '<span class="ttt">'+binstr+'</span></div>', this.start + 16+1 + index, 1));
+                bindings.push( new NilBinding( "  "));
+                index++;
             }
-                bindings.push( new NilBinding(" <br />"));
+            bindings.push( new NilBinding( '</td></tr>'));
         }
+        bindings.push( new NilBinding( '</table>'));
 
 
         seg.binding = bindings;
@@ -488,10 +566,104 @@ class HuffmanData implements SegmentBuilder {
     }
 
     private constructHuffmanCodes() {
+        //First count how many you need
         var count = 0;
         for( var i=0; i<16; ++i) {
             count += this.numPerRow[i];
         }
+        var codes = new Uint16Array(count);
+        
+        // Now apply the algorithm to construct the codes
+        var c=0;
+        var incr = 0;
+        var index = 0;
 
+        for( var i=0; i<16; ++i) {
+            if( this.numPerRow[i] == 0) {
+                incr <<= 1;
+                continue;
+            }
+            codes[index++] = c = incr * (c+1);
+            for( var j=1; j < this.numPerRow[i]; ++j) {
+                codes[index++] = ++c;
+            }
+
+            incr = 2;
+        }
+
+        this.codes = codes;
+
+        // Now construct the short-hand access
+        var c=0;
+        for( var k=0; k<16; ++k) {
+            if( this.numPerRow[k] == 0) {
+                this.maxCode[0] = -1;
+                continue;
+            }
+
+            c+=1;
+            this.valPtr[k] = c - 1;
+            this.minCode[k] = this.codes[c-1];
+            c = c + this.numPerRow[k] - 1;
+            this.maxCode[k] = this.codes[c - 1];
+        }
+    }
+}
+
+class SOSData extends SegmentBuilder {
+
+    numComponents: number;
+    componentID: Uint8Array;
+    htableID: Uint8Array;
+    constructor(reader : BinaryReader, start:number, len:number) {
+        super(reader, start, len+2);
+
+        this.numComponents = reader.readByte();
+
+        if( len < this.numComponents*2 + 6) throw "Bad SOS Marker";
+        if( len > this.numComponents*2 + 6) console.log("Bad SOS Marker (Nonstandard data added?).  Attempting to ignore.");
+
+        this.componentID = new Uint8Array(this.numComponents);
+        this.htableID = new Uint8Array(this.numComponents);
+
+        for( var i=0; i<this.numComponents; ++i) {
+            this.componentID[i] = reader.readByte();
+            this.htableID[i] = reader.readByte();
+        }
+
+        // 3 Bytes which are ignored
+    }
+
+    
+    constructSegment() : Segment {
+        var bindings: Binding[] = [];
+
+        bindings.push( new NilBinding("Number of Components: "));
+        bindings.push( new DataBinding(""+this.numComponents,this.start + 4, 1));
+        for( var i=0; i<this.numComponents; ++i) {
+            bindings.push( new NilBinding("<br />Component #"+i+": "));
+
+            var str;
+            switch( this.componentID[i]) {
+                case 1: str = "Y"; break;
+                case 2: str = "Cb"; break;
+                case 3: str = "Cr"; break;
+                case 4: str = "I"; break;
+                case 5: str = "Q"; break;
+                default: str = "Unknown Component type.";
+            }
+            bindings.push( new DataBinding(str, this.start + 5 + 2*i, 1));
+            bindings.push( new NilBinding(", using Huffman Table: "));
+            bindings.push( new DataBinding(""+this.htableID[i], this.start + 5 + 2*i + 1, 1));
+        }
+        bindings.push( new NilBinding("<br />"));
+        bindings.push( new DataBinding("Unused Data", this.start + 5 + 2*this.numComponents, 3));
+        return {
+            start: this.start,
+            length: this.length,
+            color: "#AAAA55",
+            binding: bindings,
+            descriptor: "Start of Scan Block"
+        }
     }
 }

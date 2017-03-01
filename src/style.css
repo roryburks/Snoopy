@@ -116,6 +116,36 @@ tr{
     color: #006600;
 }
 
+.simpleTable, .simpleTable th, .simpleTable td {
+    border: 1px solid black;
+}
+
+/** has tooltip */
+.htt {
+    position: relative;
+    display: inline-block;
+    border-bottom: 1px dotted black;
+}
+
+.htt .ttt {
+    visibility: hidden;
+    width: 120px;
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+
+    /* Position the tooltip */
+    position: absolute;
+    z-index: 1;
+    top: 10px;
+}
+
+.htt:hover .ttt {
+    visibility: visible;
+}
+
 /* sfInt is a class for flagging interactable components of the Segment Field */
 .sfInt {
     border: 1px dotted darkblue;

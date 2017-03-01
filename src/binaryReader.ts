@@ -9,6 +9,10 @@ class BinaryReader {
         this.seeker = 0;
     }
 
+    getLength() : number {
+        return this.buffer.byteLength;
+    }
+
     readByte() : number {
         if( this.seeker >= this.buffer.length)
             return undefined;
