@@ -18,6 +18,7 @@ body {
     height: 100%;
 }
 
+/* ==== Container Fields ==== */
 #leftContainer {
     
     float: left;
@@ -88,6 +89,19 @@ body {
 /*    overflow: scroll;*/
 }
 
+#treeField {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 200px;
+    height: 450px;
+    background: white;
+    overflow-y: scroll;
+    display: none;
+}
+
+
+/* ==== Common Used Attributes ==== */
 .cTable {
     border-spacing: 0px;
     table-layout:fixed;

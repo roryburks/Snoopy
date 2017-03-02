@@ -1,10 +1,11 @@
 
 import {getFileExtension,Uint8ToString} from "../util";
 import {CanvasHexComponent} from "./canvashex";
-import {Parser, ParseStructure, Segment, Bound, CellBinding} from "../parsers/parseStructure";
+import {Parser, ParseStructure, Segment, Bound, CellBinding, SegmentNode} from "../parsers/parseStructure";
 import {JPGParser} from "../parsers/parseJPG";
 import {PNGParser} from "../parsers/parsePNG";
 import {GIFParser} from "../parsers/parseGIF";
+import {Queue} from "../util";
 
 
 export class UIManager {
@@ -54,14 +55,11 @@ export class UIManager {
             getFileExtension(this.filename).toLowerCase(), this.data);
         this.parsed = (parser)?parser.parse() : null;
 
+        $("#visualField").empty();
         if( this.parsed) {
-            $("#visualField").empty();
-            var img = document.createElement("img") as HTMLImageElement;
+            $("#visualField").html( this.parsed.visualHTML );
 
-            var str = "data:image/*;base64," + btoa(Uint8ToString(this.data));
-
-            img.setAttribute("src", str);
-            $("#visualField").append(img);
+            $("#treeField").html(this.constructTreeRec("", this.parsed.segmentTree.getRoot(), 0));
         }
         
         // Adjust the size of the scrollField
@@ -72,6 +70,19 @@ export class UIManager {
             this.hexComponent.updateData();
     }
 
+    private constructTreeRec( treeHTML : string, node:  SegmentNode, depth : number)  : string {
+        var children = node.getChildren();
+        for( var ci = 0; ci<children.length; ++ci) {
+            for( var i=0; i<depth; ++i) {
+                treeHTML += "-";
+            }
+            treeHTML += children[ci].getName() + "<br />";
+            treeHTML += this.constructTreeRec( "", children[ci], depth+1);
+        }
+        console.log( treeHTML);
+        return treeHTML;
+    }
+
     boundSegment : Segment;
     setBoundSegment( seg : Segment) {
         if( this.boundSegment == seg) return;
@@ -79,7 +90,7 @@ export class UIManager {
 
         var str : string = "";
 
-        str += seg.descriptor + "<br />";
+        str += seg.title + "<br />";
 
         if( seg.binding) {
             for( var i=0; i < seg.binding.length; ++i) {

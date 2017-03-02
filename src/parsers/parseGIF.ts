@@ -1,8 +1,8 @@
 import {BinaryReader} from "../binaryReader";
-import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding, CellBinding}
+import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding, CellBinding, SegmentNode}
      from "./parseStructure";
 import {ParseColors} from "./colors";
-import {randcolor} from "../util";
+import {randcolor, Uint8ToString} from "../util";
 
 
 export class GIFParser extends Parser {
@@ -14,6 +14,7 @@ export class GIFParser extends Parser {
     parse() : ParseStructure {
         this.parsed = new ParseStructure();
 
+        // Parse the IHDR
         this.header = new HeaderSegment( this.reader, 0, this);
         if( this.header.bad) return null;
 
@@ -21,11 +22,14 @@ export class GIFParser extends Parser {
             this.globalTable = new ColorTable(this.reader, this.reader.getSeek(), this, this.header.ctableSize);
         }
 
-        this.parsed.segments.push(this.header.constructSegment());
+
+        var head = this.parsed.segmentTree.getRoot().addSegment(this.header.constructSegment());
+        var currentImageRoot : SegmentNode= null;
+        var imgNum = 0;
         if( this.header.globalTable) {
             var seg = this.globalTable.constructSegment();
-            seg.descriptor = "Global Color Table";
-            this.parsed.segments.push(seg);
+            seg.title = "Global Color Table";
+            head.addSegment(seg);
         }
 
         while( true) {
@@ -33,37 +37,39 @@ export class GIFParser extends Parser {
             var marker = this.reader.readByte();
 
             if( marker == 0x3B) {
-            console.log( "3B");
-                this.parsed.segments.push( {
+                this.parsed.segmentTree.getRoot().addSegment( {
                     start : this.reader.getSeek()-1,
                     length : 1,
                     color : "#AACCCC",
                     binding : [],
-                    descriptor : "Trailer (End of File Marker)"
+                    title : "Trailer (End of File Marker)"
                 });
                 break;
             }
             else if( marker == 0x2C) {
                 //   Image Super-Segment
+                var localRoot : SegmentNode =((currentImageRoot == null) ? this.parsed.segmentTree.getRoot().addNullSegment("Image #"+(imgNum++)) : currentImageRoot);
+
                 var imgDesc = new ImageDescriptor( this.reader, start, this);
-                this.parsed.segments.push( imgDesc.constructSegment());
+                localRoot.addSegment( imgDesc.constructSegment());
                 if( imgDesc.hasColorTable) {
                     var cTable = new ColorTable( this.reader, this.reader.getSeek(), this, imgDesc.ctableSize);
-                    this.parsed.segments.push( cTable.constructSegment());
+                    localRoot.addSegment( cTable.constructSegment());
                 }
                 var imgData = new ImageData( this.reader, this.reader.getSeek(), this);
-                this.parsed.segments.push( imgData.constructSegment());
+                localRoot.addSegment( imgData.constructSegment());
+                currentImageRoot = null;
             }
             else {
                 if( marker == undefined) break;
                 marker = (marker << 8) + this.reader.readByte();
                 var len = this.reader.readByte();
-                console.log( marker.toString(16) +"," + len + ":" + start);
 
                 var data : SegmentData;
                 switch( marker) {
                     case 0x21F9:
                     data = new GraphicsControlSegment( this.reader, start, this, len);
+                    currentImageRoot = this.parsed.segmentTree.getRoot().addNullSegment("Image #"+(imgNum++));
                     break;
                     case 0x21FE:
                     data = new CommentExtension( this.reader, start, this, len);
@@ -76,10 +82,18 @@ export class GIFParser extends Parser {
                     data = new UnknownBlock( this.reader, start, this, marker, len);
                     break;
                 }
-                this.parsed.segments.push( data.constructSegment());
+                if( currentImageRoot)
+                    currentImageRoot.addSegment( data.constructSegment());
+                else 
+                    this.parsed.segmentTree.getRoot().addSegment( data.constructSegment());
                 this.reader.setSeek( start + 4 + len);
             }
         }
+
+        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.reader.buffer)) + '" />';
+        this.parsed.segments = this.parsed.segmentTree.getRoot().getAll();
+
+        console.log( this.parsed.segments.length);
 
         return this.parsed;
     }
@@ -116,7 +130,7 @@ class UnknownBlock extends SegmentData {
             length : this.length + 4,
             color : randcolor(),
             binding : [],
-            descriptor : "Unknown Block Type: " + this.id.toString(16)
+            title : "Unknown Block Type: " + this.id.toString(16)
         };
     }
 }
@@ -140,7 +154,7 @@ class CommentExtension extends SegmentData {
             length : this.length + 4,
             color : randcolor(),
             binding : bindings,
-            descriptor : "Comment Extension"
+            title : "Comment Extension"
         };
     }
 }
@@ -173,7 +187,7 @@ class ApplicationExtension extends SegmentData {
             length : this.len + this.sublen + 5,
             color : randcolor(),
             binding : bindings,
-            descriptor : "Application Block"
+            title : "Application Block"
         };
     }
 }
@@ -195,7 +209,7 @@ class GraphicsControlSegment extends SegmentData {
             length : this.length + 4,
             binding : [],
             color : randcolor(),
-            descriptor : "Graphics Control Extension" 
+            title : "Graphics Control Extension" 
         };
     }
 
@@ -253,7 +267,7 @@ class ImageDescriptor extends SegmentData {
             length : 10,
             binding : bindings,
             color : randcolor(),
-            descriptor : "Image Descriptor"
+            title : "Image Descriptor"
         };
     }
 }
@@ -283,7 +297,7 @@ class ImageData extends SegmentData {
             length : this.len,
             binding : [],
             color : randcolor(),
-            descriptor : "Image Data"
+            title : "Image Data"
         };
     }
 }
@@ -326,7 +340,7 @@ class ColorTable extends SegmentData {
             length : this.size * 3,
             color : ParseColors.palette,
             binding : bindings,
-            descriptor : "Color Table"
+            title : "Color Table"
         };
     }
 }
@@ -386,7 +400,6 @@ class HeaderSegment extends SegmentData {
         bindings.push( new DataBinding(""+this.globalTable, 10, 1));
         bindings.push( new NilBinding(' (largest bit)<br />BG Color Index: '));
         var color = (this.context.globalTable) ? this.context.globalTable.table[this.bgColorIndex] : 0;
-        console.log( this.bgColorIndex + ":" + this.context.globalTable);
         bindings.push( new DataBinding(""+this.bgColorIndex + '<span class="colorBox" style="background-color:'+ParseColors.rgbToString(color)+'"></span>', 11, 1));
         bindings.push( new NilBinding('<br />Pixel Aspect Ratio: ' ));
         bindings.push( new DataBinding((this.pixelAspectRatio == 0)?"1:1":"nonzero value: I don't actually know what this means.", 12, 1));
@@ -396,7 +409,7 @@ class HeaderSegment extends SegmentData {
             length: 13,
             binding : bindings,
             color : ParseColors.header,
-            descriptor: "Header"
+            title: "Header"
         };
     }
 }

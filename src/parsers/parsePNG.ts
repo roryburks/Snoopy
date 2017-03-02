@@ -2,7 +2,7 @@ import {BinaryReader} from "../binaryReader";
 import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding, CellBinding}
      from "./parseStructure";
 import {ParseColors} from "./colors";
-import {randcolor} from "../util";
+import {randcolor,Uint8ToString} from "../util";
 
 export class PNGParser extends Parser {
     parsed : ParseStructure;
@@ -13,6 +13,7 @@ export class PNGParser extends Parser {
         if( !this.parseHeader()) return null;
         while( !this.reader.eof()) this.parseChunk();
 
+        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.reader.buffer)) + '" />';
         return this.parsed;
     }
     getError() : string{
@@ -32,7 +33,7 @@ export class PNGParser extends Parser {
             length : 8,
             color : ParseColors.header,
             binding : [],
-            descriptor : "PNG Signature"
+            title : "PNG Signature"
         });
         return true;
     }
@@ -104,7 +105,7 @@ class UnknownSegment extends SegmentData {
             length : this.length,
             color : "#FFFFFF",
             binding : bindingsForChunk(this.type, this.start, this.length, []),
-            descriptor : this.type + " Chunk"
+            title : this.type + " Chunk"
         };
     }
 }
@@ -119,7 +120,7 @@ class ImageData extends SegmentData {
             length : this.length,
             color : ParseColors.cyclingColor(ParseColors._data),
             binding : bindingsForChunk("IDAT", this.start, this.length, []),
-            descriptor : "Image Data Stream"
+            title : "Image Data Stream"
         };
     }
 }
@@ -158,7 +159,7 @@ class IHDRData extends SegmentData {
         seg.start = this.start;
         seg.length = this.length;
         seg.color = randcolor();
-        seg.descriptor = "IHDR Chunk (Image Header)";
+        seg.title = "IHDR Chunk (Image Header)";
 
         var bindings : Binding[] = [];
 
@@ -216,7 +217,7 @@ class sRGBData extends SegmentData {
             length : this.length,
             color : randcolor(),
             binding : bindingsForChunk("sRGB", this.start, this.length, bindings),
-            descriptor : "sRGB Chunk"
+            title : "sRGB Chunk"
         };
     }
 }
@@ -239,7 +240,7 @@ class gAMAData extends SegmentData {
             length : this.length,
             color : randcolor(),
             binding : bindingsForChunk("gAMA", this.start, this.length, bindings),
-            descriptor : "gAMA Chunk"
+            title : "gAMA Chunk"
         };
     }
 }
@@ -271,7 +272,7 @@ class pHYsData extends SegmentData {
             length : this.length,
             color : randcolor(),
             binding : bindingsForChunk("pHYs", this.start, this.length, bindings),
-            descriptor : "pHYs Chunk"
+            title : "pHYs Chunk"
         };
     }
 }
@@ -318,7 +319,7 @@ class cHRMData extends SegmentData {
             length : this.length,
             color : randcolor(),
             binding : bindingsForChunk("cHRM", this.start, this.length, bindings),
-            descriptor : "cHRM Chunk"
+            title : "cHRM Chunk"
         };
     }
 }
@@ -335,7 +336,7 @@ class COPYTHIS extends SegmentData {
             length : this.length,
             color : randcolor(),
             binding : bindingsForChunk("cHRM", this.start, this.length, bindings),
-            descriptor : "cHRM Chunk"
+            title : "cHRM Chunk"
         };
     }
 }
@@ -381,7 +382,7 @@ class PLTEData extends SegmentData {
             length : this.length,
             color : ParseColors.palette,
             binding : bindingsForChunk("PLTE", this.start, this.length, bindings),
-            descriptor : "Palette Chunk"
+            title : "Palette Chunk"
         };
     }
 }

@@ -1,4 +1,5 @@
 import {BinaryReader} from "../binaryReader";
+import {Queue} from "../util";
 
 /**
  * 
@@ -17,13 +18,62 @@ export abstract class Parser {
     abstract parse() : ParseStructure;
 }
 export class ParseStructure {
+    segmentTree : SegmentTree = new SegmentTree();
     segments : Segment[] = [];
+    visualHTML : string;
+}
+
+export class SegmentTree {
+    private root : SegmentNode = new SegmentNode(null, "Root");
+
+    getRoot() : SegmentNode { return this.root;}
+}
+export class SegmentNode {
+    private children : SegmentNode[] = [];
+    private segment : Segment;
+    private name : string;
+
+    constructor( segment : Segment, name : string) {
+        this.segment = segment;
+        this.name = name;
+    }
+    getName() : string { return this.name;}
+    getSegment() : Segment { return this.segment;}
+    getChildren() : SegmentNode[] { return this.children.slice(0);}
+    addSegment( seg : Segment) : SegmentNode {
+        var sNode = new SegmentNode(seg, seg.title);
+        this.children.push(sNode);
+        return sNode;
+    }
+    addNullSegment( str : string) : SegmentNode {
+        var sNode = new SegmentNode(null, str);
+        this.children.push(sNode);
+        return sNode;
+    }
+    getAll() : Segment[] {
+        var ret : Segment[] = [];
+        var dfqueue = new Queue<SegmentNode>();
+
+        // Note: specifically omits the node itself
+        dfqueue.enqueue( this);
+        while( !dfqueue.isEmpty()) {
+            var node = dfqueue.dequeue();
+
+            for( var i=0; i < node.children.length; ++i) {
+                var seg = node.children[i].getSegment();
+                if( seg)ret.push(seg);
+                dfqueue.enqueue( node.children[i]);
+            }
+        }
+
+        return ret;
+    }
 }
 export class Segment {
     start : number;
     length : number;
     color : string;
-    descriptor : string;
+    title : string;
     binding : Binding[];
 }
 export interface Binding {

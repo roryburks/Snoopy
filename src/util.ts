@@ -37,3 +37,25 @@ export function hexByteStr( hex : number) : string {
     while( str.length < 2) str = "0"+str;
     return str;
 }
+
+export class Queue<T> {
+    private data : any[] = [];
+    private start = 0;
+
+    getLength() : number { return this.data.length - this.start;}
+    isEmpty() : boolean { return (this.data.length == 0);}
+    enqueue( entry : T) {this.data.push(entry);}
+    dequeue() : T {
+        if( this.data.length == 0) return undefined;
+
+        var ret = this.data[this.start++];
+        if( this.start*2 >= this.data.length) {
+            this.data = this.data.slice(this.start);
+            this.start = 0;
+        }
+        return ret;
+    }
+    peek() : T {
+        return this.data[this.start];
+    }
+}

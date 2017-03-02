@@ -1,6 +1,6 @@
 import {BinaryReader} from "../binaryReader";
 import {hexStr} from "../main";
-import {hexByteStr} from "../util";
+import {hexByteStr, Uint8ToString} from "../util";
 import {ParseStructure, Parser, Segment} from "../parsers/parseStructure";
 import {Binding, DataBinding, NilBinding, CellBinding} from "../parsers/parseStructure";
 import {ParseColors} from "./colors";
@@ -23,6 +23,7 @@ class JPGParser extends Parser{
 
         while( this.parseSegment()) {}
 
+        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.reader.buffer)) + '" />';
         return this.parsed;
     }
     private parseHeader() : boolean {
@@ -37,7 +38,7 @@ class JPGParser extends Parser{
             start : 0,
             length : 2,
             color : "#a0a2de",
-            descriptor : "Start of Image",
+            title : "Start of Image",
             binding : [new DataBinding("0xFF", 0, 1), new NilBinding(" "), new DataBinding("0xD8",1,1)]
         });
 
@@ -87,7 +88,7 @@ class JPGParser extends Parser{
                 length: this.reader.getLength() - this.reader.getSeek(),
                 color: ParseColors.data,
                 binding: [],
-                descriptor: "Image Data"
+                title: "Image Data"
             })
             return false;
         case 0xDB:
@@ -102,7 +103,7 @@ class JPGParser extends Parser{
                 start : reader.getSeek() - 2,
                 length : 2,
                 color: "#777777",
-                descriptor: "End of Scan (end of file)",
+                title: "End of Scan (end of file)",
                 binding: []
             });
             return false;
@@ -132,7 +133,7 @@ class JPGParser extends Parser{
             binding : [],
             start: start,
             length: length,
-            descriptor : str,
+            title : str,
             color: "#999999"
         });
     }
@@ -186,7 +187,7 @@ function markerSegment(marker : number, start: number, len: number, descriptor:s
         length: 4,
         binding:bindings, 
         color: ParseColors.marker, 
-        descriptor: descriptor
+        title: descriptor
     }
 }
 
@@ -214,7 +215,7 @@ class UnknownAPPNData extends SegmentBuilder {
         seg.start = this.start;
         seg.length = this.length;
         seg.color = "#AAAAAA";
-        seg.descriptor = "Unknown Application-Specific Data"
+        seg.title = "Unknown Application-Specific Data"
 
         return seg;
     }
@@ -253,7 +254,7 @@ class JFIFData extends SegmentBuilder {
 
         seg.start = this.start;
         seg.length = this.length;
-        seg.descriptor = "JFIF Application Data";
+        seg.title = "JFIF Application Data";
         seg.color = "#bfc67f";
 
         var bindings : Binding[] = [];
@@ -301,7 +302,7 @@ class EXIFData  extends SegmentBuilder{
         seg.start = this.start;
         seg.length = this.length;
         seg.color = "#26a89d";
-        seg.descriptor = "Exif Data";
+        seg.title = "Exif Data";
 
         return seg;
     }
@@ -342,7 +343,7 @@ class QuantTableData extends SegmentBuilder {
         seg.start = this.start;
         seg.length = this.length;
         seg.color = ParseColors.cyclingColor(0xb2748a);
-        seg.descriptor = "Quantization Table Data";
+        seg.title = "Quantization Table Data";
         
         
         var table, size;
@@ -442,7 +443,7 @@ class SOFData extends SegmentBuilder {
         var start = this.start;
         var seg = new Segment();
         seg.color = "#814a8c";
-        seg.descriptor = "Start of Frame 0";
+        seg.title = "Start of Frame 0";
         seg.start = this.start;
         seg.length = this.length;
 
@@ -522,7 +523,7 @@ class HuffmanData extends SegmentBuilder {
         seg.start = this.start;
         seg.length = this.length;
         seg.color = ParseColors.cyclingColor(0x9b4444);
-        seg.descriptor = "Huffman Table";
+        seg.title = "Huffman Table";
 
         var bindings : Binding[] = [];
 
@@ -663,7 +664,7 @@ class SOSData extends SegmentBuilder {
             length: this.length,
             color: "#AAAA55",
             binding: bindings,
-            descriptor: "Start of Scan Block"
+            title: "Start of Scan Block"
         }
     }
 }

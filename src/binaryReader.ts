@@ -1,7 +1,7 @@
 
 
 class BinaryReader {
-    private buffer : Uint8Array;
+    buffer : Uint8Array;
     private seeker : number = 0;
 
     constructor( buffer : Uint8Array) {
