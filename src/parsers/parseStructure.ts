@@ -19,7 +19,6 @@ export abstract class Parser {
 }
 export class ParseStructure {
     segmentTree : SegmentTree = new SegmentTree();
-    segments : Segment[] = [];
     visualHTML : string;
 }
 

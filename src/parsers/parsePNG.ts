@@ -1,5 +1,5 @@
 import {BinaryReader} from "../binaryReader";
-import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding, CellBinding}
+import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding, CellBinding, SegmentNode}
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor,Uint8ToString} from "../util";
@@ -7,6 +7,8 @@ import {randcolor,Uint8ToString} from "../util";
 export class PNGParser extends Parser {
     parsed : ParseStructure;
     error : string = "";
+    imgNode : SegmentNode;
+
     parse() : ParseStructure {
         this.parsed = new ParseStructure();
 
@@ -28,7 +30,7 @@ export class PNGParser extends Parser {
             this.error = "Not a valid PNG File."
             return false;
         }
-        this.parsed.segments.push( {
+        this.parsed.segmentTree.getRoot().addSegment( {
             start : 0,
             length : 8,
             color : ParseColors.header,
@@ -54,7 +56,12 @@ export class PNGParser extends Parser {
             data = new UnknownSegment(this.reader, start, len + 12, type);
         }
 
-        this.parsed.segments.push( data.constructSegment());
+        if( type == "IDAT"){
+            this.imgNode = this.imgNode || this.parsed.segmentTree.getRoot().addNullSegment("Image Data");
+            this.imgNode.addSegment( data.constructSegment());
+        }
+        else
+            this.parsed.segmentTree.getRoot().addSegment( data.constructSegment());
 
         this.reader.setSeek( start + 8 + len);
 

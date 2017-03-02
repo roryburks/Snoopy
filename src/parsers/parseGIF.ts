@@ -91,9 +91,6 @@ export class GIFParser extends Parser {
         }
 
         this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.reader.buffer)) + '" />';
-        this.parsed.segments = this.parsed.segmentTree.getRoot().getAll();
-
-        console.log( this.parsed.segments.length);
 
         return this.parsed;
     }

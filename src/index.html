@@ -7,12 +7,18 @@
     <link rel="stylesheet" type="text/css" href="./style.css">
 
     <body>
-        <input id="fileinput" type="file" /><br />
-        <button id="btnStart">Load</button>
+        <div><input id="fileinput" type="file" /><button id="btnStart">Load</button></div>
 
-        <br />
-
-        <div id="treeField"></div>
+        <div id="treeArea">
+            <div id="taE">
+                <div id="treeTitle"><span>File Outline</span>
+                    <span id="tbIcons"><div id="tbExpand"></div><div id="tbHide"></div></span>
+                </div>
+                <div id="treeSeparator"></div>
+                <div id="treeField"></div>
+            </div>
+            <span id="taC"><div id="tbShow"></div></span>
+        </div>
 
         <div id="leftContainer">
             <div id="visualField"></div>

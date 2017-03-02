@@ -3,14 +3,7 @@ html {
 }
 
 body {
-    background: rgba(86,113,118,1);
-    background: -moz-linear-gradient(-45deg, rgba(86,113,118,1) 0%, rgba(17,45,49,1) 100%);
-    background: -webkit-gradient(left top, right bottom, color-stop(0%, rgba(86,113,118,1)), color-stop(100%, rgba(17,45,49,1)));
-    background: -webkit-linear-gradient(-45deg, rgba(86,113,118,1) 0%, rgba(17,45,49,1) 100%);
-    background: -o-linear-gradient(-45deg, rgba(86,113,118,1) 0%, rgba(17,45,49,1) 100%);
-    background: -ms-linear-gradient(-45deg, rgba(86,113,118,1) 0%, rgba(17,45,49,1) 100%);
-    background: linear-gradient(135deg, rgba(86,113,118,1) 0%, rgba(17,45,49,1) 100%);
-    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#567176', endColorstr='#112d31', GradientType=1 );
+    background: rgba(160,160,160,1);
 
     margin:0px;
     padding:0px;
@@ -19,6 +12,9 @@ body {
 }
 
 /* ==== Container Fields ==== */
+#fileinput { display: inline-block;}
+#btnStart { display: inline-block;}
+
 #leftContainer {
     
     float: left;
@@ -36,6 +32,10 @@ body {
 #editorField {
     float:right;
     display:flex;
+    position: fixed;
+    right: 3px;
+    top: 2px;
+
     background-color: #AAAABB;
 
     border-style: inset;
@@ -45,7 +45,7 @@ body {
     border-right-color: #777777;
 
     width: 30%;
-    height: 800px;
+    height: 95vh;
 
     margin: 5px;
 }
@@ -89,16 +89,59 @@ body {
 /*    overflow: scroll;*/
 }
 
-#treeField {
+#treeArea {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 30px;
+    left: 0;
+}
+#treeSeparator {
+    border-style: double none double none;
+}
+#taE /* taE is the Expanded content of the tree */
+{ 
+    border-width: 2px ;
+    border-color: #444488;
+    border-style: solid solid solid none;
+    padding: 2px 2px 2px 0;
+    border-radius: 0 4px 4px;
     width: 200px;
-    height: 450px;
     background: white;
-    overflow-y: scroll;
     display: none;
 }
+#taC /* taC is the Collapsed content of the tree */
+{
+    display: block;
+}
+#treeField {
+    overflow: scroll;
+    white-space:nowrap;
+    width: 100%;
+    height: 450px;
+}
+
+#tbIcons {
+    display: block;
+    float: right;
+}
+#tbExpand {
+    width: 12px;
+    height: 12px;
+    background: url(res/webIcons12x12.png) 26px 0;
+    display: inline-block;
+}
+#tbShow {
+    width: 12px;
+    height: 12px;
+    background: url(res/webIcons12x12.png) 52px 0;
+    display: inline-block;
+}
+#tbHide {
+    width: 12px;
+    height: 12px;
+    background: url(res/webIcons12x12.png) 0 0;
+    display: inline-block;
+}
+
 
 
 /* ==== Common Used Attributes ==== */

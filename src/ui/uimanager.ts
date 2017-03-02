@@ -14,6 +14,7 @@ export class UIManager {
     scrollField : HTMLDivElement;
     segmentField : HTMLDivElement;
     parsed : ParseStructure;
+    segments : Segment[];
     filename : string;
 
     hexComponent : any;
@@ -45,6 +46,14 @@ export class UIManager {
             if( this.hexComponent)
                 this.hexComponent.updateData();
         }
+        $("#tbHide").click( ((evt : JQueryEventObject) : any => {
+            $("#taE").css("display","none");
+            $("#taC").css("display","block");
+        }));
+        $("#tbShow").click( ((evt : JQueryEventObject) : any => {
+            $("#taC").css("display","none");
+            $("#taE").css("display","block");
+        }));
     }
 
     assosciateData( data : Uint8Array, filename : string) {
@@ -58,8 +67,8 @@ export class UIManager {
         $("#visualField").empty();
         if( this.parsed) {
             $("#visualField").html( this.parsed.visualHTML );
-
-            $("#treeField").html(this.constructTreeRec("", this.parsed.segmentTree.getRoot(), 0));
+            $("#treeField").html(this.constructTreeRec(this.parsed.segmentTree.getRoot(), 0));
+            this.segments = this.parsed.segmentTree.getRoot().getAll();
         }
         
         // Adjust the size of the scrollField
@@ -70,17 +79,17 @@ export class UIManager {
             this.hexComponent.updateData();
     }
 
-    private constructTreeRec( treeHTML : string, node:  SegmentNode, depth : number)  : string {
+    private constructTreeRec(  node:  SegmentNode, depth : number)  : string {
         var children = node.getChildren();
+        var str = "";
         for( var ci = 0; ci<children.length; ++ci) {
             for( var i=0; i<depth; ++i) {
-                treeHTML += "-";
+                str += "-";
             }
-            treeHTML += children[ci].getName() + "<br />";
-            treeHTML += this.constructTreeRec( "", children[ci], depth+1);
+            str += children[ci].getName() + "<br />";
+            str += this.constructTreeRec( children[ci], depth+1);
         }
-        console.log( treeHTML);
-        return treeHTML;
+        return str;
     }
 
     boundSegment : Segment;

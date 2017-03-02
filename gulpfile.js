@@ -10,8 +10,12 @@ gulp.task("copy-html", function () {
     return gulp.src(paths.pages)
         .pipe(gulp.dest("dist"));
 });
+gulp.task("copy-resources", function () {
+    return gulp.src('src/res/*')
+        .pipe(gulp.dest("dist/res"));
+});
 
-gulp.task("default", ["copy-html"], function () {
+gulp.task("default", ["copy-html","copy-resources"], function () {
     return browserify({
         basedir: '.',
         debug: true,

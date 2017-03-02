@@ -153,10 +153,10 @@ export class CanvasHexComponent  {
     }
 
     public getSegmentFromOffset( index : number) : Segment {
-        if( !this.context.parsed || !this.context.parsed.segments) return null;
+        if( !this.context.parsed || !this.context.segments) return null;
 
-        for( var i=0; i<this.context.parsed.segments.length; ++i) {
-            var seg = this.context.parsed.segments[i];
+        for( var i=0; i<this.context.segments.length; ++i) {
+            var seg = this.context.segments[i];
             if( seg.start <= index && seg.start + seg.length > index)
                 return seg;
         }
@@ -216,9 +216,9 @@ export class CanvasHexComponent  {
         this.recalculateDims();
 
         // Draw the segments
-        if( this.context.parsed && this.context.parsed.segments) {
-            for( var i=0; i < this.context.parsed.segments.length; ++i) {
-                var seg = this.context.parsed.segments[i];
+        if( this.context.parsed && this.context.segments) {
+            for( var i=0; i < this.context.segments.length; ++i) {
+                var seg = this.context.segments[i];
                 this.drawBound( { start: seg.start, len: seg.length}, seg.color, hctx, actx);
             }
         }

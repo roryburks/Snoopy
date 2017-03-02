@@ -1,7 +1,7 @@
 import {BinaryReader} from "../binaryReader";
 import {hexStr} from "../main";
 import {hexByteStr, Uint8ToString} from "../util";
-import {ParseStructure, Parser, Segment} from "../parsers/parseStructure";
+import {ParseStructure, Parser, Segment, SegmentNode} from "../parsers/parseStructure";
 import {Binding, DataBinding, NilBinding, CellBinding} from "../parsers/parseStructure";
 import {ParseColors} from "./colors";
 
@@ -11,6 +11,11 @@ class JPGParser extends Parser{
 
     sos : SOSData;
 
+    header : SegmentNode;
+    huffRoot : SegmentNode;
+    quantRoot : SegmentNode;
+
+
     constructor( buffer : Uint8Array) {
         super(buffer);
     }
@@ -19,6 +24,7 @@ class JPGParser extends Parser{
     }
     parse() : ParseStructure {
         this.parsed = new ParseStructure();
+
         if( !this.parseHeader()) return null;
 
         while( this.parseSegment()) {}
@@ -34,7 +40,7 @@ class JPGParser extends Parser{
             this.error = "Not a JPEG file (bad SOI marker)."
             return false;
         }
-        this.parsed.segments.push( {
+        this.parsed.segmentTree.getRoot().addSegment( {
             start : 0,
             length : 2,
             color : "#a0a2de",
@@ -67,39 +73,43 @@ class JPGParser extends Parser{
         case 0xE9:case 0xEA:case 0xEB:case 0xEC:case 0xED:case 0xEE:case 0xEF:
             var appndata = new UnknownAPPNData(reader,start,len+2);
             appndata.n =  (marker - 0xE0);
-            this.parsed.segments.push(appndata.constructSegment());
+            this.parsed.segmentTree.getRoot().addSegment(appndata.constructSegment());
             break;
         case 0xC0:
             var sofdata = new SOFData(reader,start,len+2);
-            this.parsed.segments.push(sofdata.constructSegment());
+            this.parsed.segmentTree.getRoot().addSegment(sofdata.constructSegment());
             break;
         case 0xC4:
-            this.parsed.segments.push( markerSegment(0xC4, start, len, "Huffman Table Marker"));
+            // Define Huffman Table
+            this.huffRoot = this.huffRoot || this.parsed.segmentTree.getRoot().addNullSegment("Huffman Tables");
+            this.huffRoot.addSegment( markerSegment(0xC4, start, len, "Huffman Table Marker"));
             while( (start + len + 2)-this.reader.getSeek() > 0) {
                 var huffdata = new HuffmanData(reader,this.reader.getSeek(),-1);
-                this.parsed.segments.push(huffdata.constructSegment());
+                this.huffRoot.addSegment(huffdata.constructSegment());
             }
             break;
         case 0xDA:
             this.sos = new SOSData( reader, start, len);
-            this.parsed.segments.push(this.sos.constructSegment());
-            this.parsed.segments.push({
+            this.parsed.segmentTree.getRoot().addSegment(this.sos.constructSegment());
+            this.parsed.segmentTree.getRoot().addSegment({
                 start: this.reader.getSeek(),
                 length: this.reader.getLength() - this.reader.getSeek(),
                 color: ParseColors.data,
                 binding: [],
                 title: "Image Data"
-            })
+            });
             return false;
         case 0xDB:
-            this.parsed.segments.push( markerSegment(0xDB, start, len, "Quantization Table Marker"));
+            // Define Quantization Table
+            this.quantRoot = this.quantRoot || this.parsed.segmentTree.getRoot().addNullSegment("Quantization Tables");
+            this.quantRoot.addSegment( markerSegment(0xDB, start, len, "Quantization Table Marker"));
             while( (start + len + 2)-this.reader.getSeek() > 0) {
                 var qtdata = new QuantTableData(reader,this.reader.getSeek(),-1);
-                this.parsed.segments.push(qtdata.constructSegment());
+                this.quantRoot.addSegment(qtdata.constructSegment());
             }
             break;
         case 0xD9:
-            this.parsed.segments.push({
+            this.parsed.segmentTree.getRoot().addSegment({
                 start : reader.getSeek() - 2,
                 length : 2,
                 color: "#777777",
@@ -129,7 +139,7 @@ class JPGParser extends Parser{
             str = "Arithmetic Table";
         else str = "Unknown Tag: " + hexStr(marker);
 
-        this.parsed.segments.push( {
+        this.parsed.segmentTree.getRoot().addSegment( {
             binding : [],
             start: start,
             length: length,
@@ -145,7 +155,7 @@ class JPGParser extends Parser{
 
         if( identifier == "JFIF") {
             var data = new JFIFData(reader,start,length);
-            this.parsed.segments.push( data.constructSegment());
+            this.parsed.segmentTree.getRoot().addSegment( data.constructSegment());
         }
         else if( identifier == "JFXX") {
             console.log( "JFXX: Unimplemented");
@@ -163,7 +173,7 @@ class JPGParser extends Parser{
 
         if( identifier == "Exif") {
             var data = new EXIFData(reader,start,length);
-            this.parsed.segments.push( data.constructSegment());
+            this.parsed.segmentTree.getRoot().addSegment( data.constructSegment());
         }
         return true;
     }
@@ -633,6 +643,7 @@ class SOSData extends SegmentBuilder {
         }
 
         // 3 Bytes which are ignored
+        reader.setSeek(reader.getSeek()+3);
     }
 
     
