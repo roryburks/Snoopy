@@ -164,6 +164,7 @@ export class CanvasHexComponent  {
         return null;
     }
 
+
     rebuildHexTables() {
         this.findTextDimensions();
 
@@ -335,5 +336,12 @@ export class CanvasHexComponent  {
     setHighlighted( bound : Bound) {
         this.highlighted = bound;
         this.redraw();
+    }
+
+    
+    public scrollTo( index : number) {
+        var dim = this.textDim;
+        this.context.scrollBar.scrollTop = Math.floor(index / this.bytesPerLine) * dim.height;
+        console.log(this.context.scrollBar.scrollTop  );
     }
 }

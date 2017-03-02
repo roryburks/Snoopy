@@ -2,7 +2,7 @@ import {BinaryReader} from "../binaryReader";
 import {hexStr} from "../main";
 import {hexByteStr, Uint8ToString} from "../util";
 import {ParseStructure, Parser, Segment, SegmentNode} from "../parsers/parseStructure";
-import {Binding, DataBinding, NilBinding, CellBinding} from "../parsers/parseStructure";
+import {Binding, DataBinding_, NilBinding, CellBinding} from "../parsers/parseStructure";
 import {ParseColors} from "./colors";
 
 class JPGParser extends Parser{
@@ -45,7 +45,7 @@ class JPGParser extends Parser{
             length : 2,
             color : "#a0a2de",
             title : "Start of Image",
-            binding : [new DataBinding("0xFF", 0, 1), new NilBinding(" "), new DataBinding("0xD8",1,1)]
+            binding : [new DataBinding_("0xFF", 0, 1), new NilBinding(" "), new DataBinding_("0xD8",1,1)]
         });
 
         return true;
@@ -188,9 +188,9 @@ function markerSegment(marker : number, start: number, len: number, descriptor:s
     var bindings : Binding[] = [];
 
     bindings.push( new NilBinding("Marker:"));
-    bindings.push( new DataBinding(""+hexByteStr(marker), start+1, 1));
+    bindings.push( new DataBinding_(""+hexByteStr(marker), start+1, 1));
     bindings.push( new NilBinding(" length:"));
-    bindings.push( new DataBinding(""+len, start+2, 2));
+    bindings.push( new DataBinding_(""+len, start+2, 2));
 
     return {
         start: start, 
@@ -270,9 +270,9 @@ class JFIFData extends SegmentBuilder {
         var bindings : Binding[] = [];
 
         bindings.push( new NilBinding("Version: "));
-        bindings.push( new DataBinding( ""+this.versionMajor, seg.start + 9, 1));
+        bindings.push( new DataBinding_( ""+this.versionMajor, seg.start + 9, 1));
         bindings.push( new NilBinding("."));
-        bindings.push( new DataBinding( ""+this.versionMinor, seg.start + 10, 1));
+        bindings.push( new DataBinding_( ""+this.versionMinor, seg.start + 10, 1));
         bindings.push( new NilBinding("<br />Pixel Density Units: "));
         switch( this.pixelDensityUnits) {
         case 0: str = "Pixel Aspect Ratio (0x00)"; break;
@@ -280,15 +280,15 @@ class JFIFData extends SegmentBuilder {
         case 2: str = "Pixels per centimeter (0x02)"; break;
         default: str = "Unknown Density Units (0x"+hexStr(this.pixelDensityUnits)+")"; break;
         }
-        bindings.push( new DataBinding(  str, seg.start + 11, 1));
+        bindings.push( new DataBinding_(  str, seg.start + 11, 1));
         bindings.push( new NilBinding(": "));
-        bindings.push( new DataBinding(  ""+this.xDensity, seg.start + 12, 2));
+        bindings.push( new DataBinding_(  ""+this.xDensity, seg.start + 12, 2));
         bindings.push( new NilBinding("x"));
-        bindings.push( new DataBinding(  ""+this.yDensity, seg.start + 14, 2));
+        bindings.push( new DataBinding_(  ""+this.yDensity, seg.start + 14, 2));
         bindings.push( new NilBinding("<br />Thumbnail Size:"));
-        bindings.push( new DataBinding(  ""+this.xThumbnail, seg.start + 16, 1));
+        bindings.push( new DataBinding_(  ""+this.xThumbnail, seg.start + 16, 1));
         bindings.push( new NilBinding("x"));
-        bindings.push( new DataBinding(  ""+this.yThumbnail, seg.start + 17, 1));
+        bindings.push( new DataBinding_(  ""+this.yThumbnail, seg.start + 17, 1));
         bindings.push( new NilBinding("<br />"));
         if( this.xThumbnail * this.yThumbnail > 0) {
             bindings.push( new NilBinding("Thumbnail:"));
@@ -397,9 +397,9 @@ class QuantTableData extends SegmentBuilder {
 
         var bindings : Binding[] = [];
 
-        bindings.push( new DataBinding((this.highPrec)?"16-bit Table":"8-bit Table"+" (High Nibble)", this.start,1));
+        bindings.push( new DataBinding_((this.highPrec)?"16-bit Table":"8-bit Table"+" (High Nibble)", this.start,1));
         bindings.push( new NilBinding('<br />Destination: '));
-        bindings.push( new DataBinding(""+(this.dest) + " (Low Nibble)", this.start,1));
+        bindings.push( new DataBinding_(""+(this.dest) + " (Low Nibble)", this.start,1));
         bindings.push(new NilBinding('<br />Table:<br />'));
         bindings.push( new NilBinding('<div class="matrix"><span class="matrixLeft"></span><table class="matrixContent">'));
         for( var x=0; x<8; ++x) {
@@ -421,7 +421,7 @@ class QuantTableData extends SegmentBuilder {
 
     private ele( x: number, y : number, elements : Binding[], entry : number, i : number, sizeof : number) {
         elements[x*8+y] = 
-        new DataBinding(""+entry, this.start + 1 + sizeof * i, sizeof);
+        new DataBinding_(""+entry, this.start + 1 + sizeof * i, sizeof);
     }
 }
 
@@ -459,13 +459,13 @@ class SOFData extends SegmentBuilder {
 
         var bindings : Binding[] = [];
 
-        bindings.push( new DataBinding(""+this.precision+"-bit Precision",start+4,1));
+        bindings.push( new DataBinding_(""+this.precision+"-bit Precision",start+4,1));
         bindings.push( new NilBinding("<br />Image Size: "));
-        bindings.push( new DataBinding(""+this.width, start+5, 2));
+        bindings.push( new DataBinding_(""+this.width, start+5, 2));
         bindings.push( new NilBinding("x"));
-        bindings.push( new DataBinding(""+this.height, start+7, 2));
+        bindings.push( new DataBinding_(""+this.height, start+7, 2));
         bindings.push( new NilBinding("<br />Number of Components: "));
-        bindings.push( new DataBinding(""+this.numComponents, start+9, 1));
+        bindings.push( new DataBinding_(""+this.numComponents, start+9, 1));
 
         for( var i=0; i<this.numComponents; ++i) {
             bindings.push( new NilBinding("<br />Component " +i +": "));
@@ -477,13 +477,13 @@ class SOFData extends SegmentBuilder {
                 case 4: str="I";break;
                 case 5: str="Q";break;
             }
-            bindings.push( new DataBinding(str, start+10 + i*3, 1));
+            bindings.push( new DataBinding_(str, start+10 + i*3, 1));
             bindings.push( new NilBinding(" sampling factors: "));
-            bindings.push( new DataBinding(""+(this.cFactor[i]>>4), start+10 + i*3+1, 1));
+            bindings.push( new DataBinding_(""+(this.cFactor[i]>>4), start+10 + i*3+1, 1));
             bindings.push( new NilBinding("x"));
-            bindings.push( new DataBinding(""+(this.cFactor[i]&0xF), start+10 + i*3+1, 1));
+            bindings.push( new DataBinding_(""+(this.cFactor[i]&0xF), start+10 + i*3+1, 1));
             bindings.push( new NilBinding(" Quantization Table: "));
-            bindings.push( new DataBinding(""+this.cQTable[i], start+10+i*3+2, 1));
+            bindings.push( new DataBinding_(""+this.cQTable[i], start+10+i*3+2, 1));
         }
 
         seg.binding = bindings;
@@ -545,7 +545,7 @@ class HuffmanData extends SegmentBuilder {
             ? '<span class="htt">DC<span class="ttt">Direct Current Terms of Discrete Cosine Transform</span></span>'
             :'<span class="htt">AC<span class="ttt">Alternating Current Terms of Discrete Cosine Transform</span></span>';
         str += ")";
-        bindings.push( new DataBinding(str, this.start, 1));
+        bindings.push( new DataBinding_(str, this.start, 1));
 
         var index = 0;
         bindings.push( new NilBinding( '<table class="simpleTable"><tr><th style="font-size:10px">Bit<br />Length</th><th>Byte the code is mapped to (mouse over for the code)</th></tr>'));
@@ -562,7 +562,7 @@ class HuffmanData extends SegmentBuilder {
                 while( hexstr.length < 2) hexstr = "0" + hexstr;
 
 
-                bindings.push( new DataBinding( '<div class="htt">'+ hexstr + '<span class="ttt">'+binstr+'</span></div>', this.start + 16+1 + index, 1));
+                bindings.push( new DataBinding_( '<div class="htt">'+ hexstr + '<span class="ttt">'+binstr+'</span></div>', this.start + 16+1 + index, 1));
                 bindings.push( new NilBinding( "  "));
                 index++;
             }
@@ -651,7 +651,7 @@ class SOSData extends SegmentBuilder {
         var bindings: Binding[] = [];
 
         bindings.push( new NilBinding("Number of Components: "));
-        bindings.push( new DataBinding(""+this.numComponents,this.start + 4, 1));
+        bindings.push( new DataBinding_(""+this.numComponents,this.start + 4, 1));
         for( var i=0; i<this.numComponents; ++i) {
             bindings.push( new NilBinding("<br />Component #"+i+": "));
 
@@ -664,12 +664,12 @@ class SOSData extends SegmentBuilder {
                 case 5: str = "Q"; break;
                 default: str = "Unknown Component type.";
             }
-            bindings.push( new DataBinding(str, this.start + 5 + 2*i, 1));
+            bindings.push( new DataBinding_(str, this.start + 5 + 2*i, 1));
             bindings.push( new NilBinding(", using Huffman Table: "));
-            bindings.push( new DataBinding(""+this.htableID[i], this.start + 5 + 2*i + 1, 1));
+            bindings.push( new DataBinding_(""+this.htableID[i], this.start + 5 + 2*i + 1, 1));
         }
         bindings.push( new NilBinding("<br />"));
-        bindings.push( new DataBinding("Unused Data", this.start + 5 + 2*this.numComponents, 3));
+        bindings.push( new DataBinding_("Unused Data", this.start + 5 + 2*this.numComponents, 3));
         return {
             start: this.start,
             length: this.length,

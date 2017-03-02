@@ -6,7 +6,7 @@ import {JPGParser} from "../parsers/parseJPG";
 import {PNGParser} from "../parsers/parsePNG";
 import {GIFParser} from "../parsers/parseGIF";
 import {Queue} from "../util";
-
+import {TreeManager} from "./treemanager";
 
 export class UIManager {
     data  : Uint8Array;
@@ -18,11 +18,13 @@ export class UIManager {
     filename : string;
 
     hexComponent : any;
+    treeManager : TreeManager;
 
 
 
     constructor() {
         this.hexComponent = new CanvasHexComponent(this);
+        this.treeManager = new TreeManager(this)
         
         this.scrollBar = $("#efsContainer").get(0) as HTMLDivElement;
         this.scrollField = $("#efScroll").get(0) as HTMLDivElement;
@@ -46,14 +48,6 @@ export class UIManager {
             if( this.hexComponent)
                 this.hexComponent.updateData();
         }
-        $("#tbHide").click( ((evt : JQueryEventObject) : any => {
-            $("#taE").css("display","none");
-            $("#taC").css("display","block");
-        }));
-        $("#tbShow").click( ((evt : JQueryEventObject) : any => {
-            $("#taC").css("display","none");
-            $("#taE").css("display","block");
-        }));
     }
 
     assosciateData( data : Uint8Array, filename : string) {
@@ -61,13 +55,13 @@ export class UIManager {
         this.filename = filename;
         
         var parser = getParserFromExtension(
-            getFileExtension(this.filename).toLowerCase(), this.data);
+            getFileExtension(this.filename), this.data);
         this.parsed = (parser)?parser.parse() : null;
 
         $("#visualField").empty();
         if( this.parsed) {
             $("#visualField").html( this.parsed.visualHTML );
-            $("#treeField").html(this.constructTreeRec(this.parsed.segmentTree.getRoot(), 0));
+            this.treeManager.constructTree();
             this.segments = this.parsed.segmentTree.getRoot().getAll();
         }
         
@@ -79,23 +73,16 @@ export class UIManager {
             this.hexComponent.updateData();
     }
 
-    private constructTreeRec(  node:  SegmentNode, depth : number)  : string {
-        var children = node.getChildren();
-        var str = "";
-        for( var ci = 0; ci<children.length; ++ci) {
-            for( var i=0; i<depth; ++i) {
-                str += "-";
-            }
-            str += children[ci].getName() + "<br />";
-            str += this.constructTreeRec( children[ci], depth+1);
-        }
-        return str;
-    }
 
     boundSegment : Segment;
-    setBoundSegment( seg : Segment) {
+    setBoundSegment( seg : Segment, scrollto?: boolean) {
         if( this.boundSegment == seg) return;
         this.boundSegment = seg;
+
+        if( seg == null) {
+            $(this.segmentField).empty();
+            return;
+        }
 
         var str : string = "";
 
@@ -132,6 +119,15 @@ export class UIManager {
             }
         }
         else $(this.segmentField).get(0).innerHTML = str;
+
+        if( scrollto && seg ) {
+            this.scrollTo(seg.start);
+        }
+    }
+    scrollTo( index : number) {
+        if( index && this.hexComponent) {
+            this.hexComponent.scrollTo(index);
+        }
     }
 
     private bindingClicked( index : number) {
@@ -181,6 +177,7 @@ export abstract class HexComponent {
 
 
 function getParserFromExtension( ext : string, buffer : Uint8Array) {
+    if( ext) ext = ext.toLowerCase();
     switch( ext) {
         case "jpg": case "jpeg": return new JPGParser(buffer);
         case "png": return new PNGParser(buffer) ;

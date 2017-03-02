@@ -1,5 +1,5 @@
 import {BinaryReader} from "../binaryReader";
-import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding, CellBinding, SegmentNode}
+import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding_, CellBinding, SegmentNode}
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor,Uint8ToString} from "../util";
@@ -76,14 +76,14 @@ export class PNGParser extends Parser {
 function bindingsForChunk( chunk : string, start: number, len : number, bindings : Binding[]) : Binding[]{
     var ret : Binding[] = [];
     ret.push( new NilBinding('<span class="chunkDesc">Segment Header: '));
-    ret.push( new DataBinding(chunk, start + 4, 4));
+    ret.push( new DataBinding_(chunk, start + 4, 4));
     ret.push( new NilBinding(" Length: "));
-    ret.push( new DataBinding(""+(len-12),start, 4));
+    ret.push( new DataBinding_(""+(len-12),start, 4));
     ret.push( new NilBinding("<br /></span>"));
 
     ret = ret.concat( bindings);
 
-    ret.push( new DataBinding('<span class="chunkDesc"><br />Data Checksum.</span>', start+8 + (len-12), 4));
+    ret.push( new DataBinding_('<span class="chunkDesc"><br />Data Checksum.</span>', start+8 + (len-12), 4));
 
     return ret;
 }
@@ -172,24 +172,24 @@ class IHDRData extends SegmentData {
 
         var str : string;
         bindings.push( new NilBinding("Image Dimensions: "));
-        bindings.push( new DataBinding(""+this.width, this.start + 8, 4));
+        bindings.push( new DataBinding_(""+this.width, this.start + 8, 4));
         bindings.push( new NilBinding("x"));
-        bindings.push( new DataBinding(""+this.height, this.start + 12, 4));
+        bindings.push( new DataBinding_(""+this.height, this.start + 12, 4));
         bindings.push( new NilBinding("<br />Bit Depth: "));
-        bindings.push( new DataBinding(""+this.bitDepth, this.start + 16, 1));
+        bindings.push( new DataBinding_(""+this.bitDepth, this.start + 16, 1));
         bindings.push( new NilBinding("<br />Color Type: "));
-        bindings.push( new DataBinding(this.getColorTypeName(), this.start + 17, 1));
+        bindings.push( new DataBinding_(this.getColorTypeName(), this.start + 17, 1));
         bindings.push( new NilBinding("<br />Compression Method: "));
         str = (this.compressionMethod == 0) ? "Default Compression (Deflate/Inflate Compression)" : "Nonstandard Compression Method";
-        bindings.push( new DataBinding(str, this.start + 18, 1));
+        bindings.push( new DataBinding_(str, this.start + 18, 1));
         bindings.push( new NilBinding("<br />Filter Method: "));
         str = (this.filterMethod == 0) ? "Default Filter (Adaptive Filtering)" : "Nonstandard Filtering Method";
-        bindings.push( new DataBinding(str, this.start + 19, 1));
+        bindings.push( new DataBinding_(str, this.start + 19, 1));
         bindings.push( new NilBinding("<br />Interlace Method: "));
         if( this.interlaceMethod == 0) str = "No Interlacing";
         else if( this.interlaceMethod == 1) str = "Adam7 Interlacing";
         else str = "Nonstandard Interlacing Method";
-        bindings.push( new DataBinding(str, this.start + 20, 1));
+        bindings.push( new DataBinding_(str, this.start + 20, 1));
 
         seg.binding = bindingsForChunk("IHDR", this.start, this.length,  bindings);
 
@@ -217,7 +217,7 @@ class sRGBData extends SegmentData {
             case 3: str = "Absolute colorimetric"; break;
             default: str = "Unknown, nonstandard"; break;
         }
-        bindings.push( new DataBinding(str, 12, 1));
+        bindings.push( new DataBinding_(str, 12, 1));
 
         return {
             start : this.start,
@@ -240,7 +240,7 @@ class gAMAData extends SegmentData {
     constructSegment() : Segment {
         var bindings : Binding[] = [];
         bindings.push( new NilBinding("Gamma (uInt / 1000000): "));
-        bindings.push( new DataBinding("" + this.gamma, this.start + 8, 4));
+        bindings.push( new DataBinding_("" + this.gamma, this.start + 8, 4));
 
         return {
             start : this.start,
@@ -266,13 +266,13 @@ class pHYsData extends SegmentData {
     constructSegment() : Segment {
         var bindings : Binding[] = [];
         bindings.push( new NilBinding("Physical Pixel Dimensions (1 pixel = ):<br />"));
-        bindings.push( new DataBinding("" + this.pwidth, this.start + 8, 4));
+        bindings.push( new DataBinding_("" + this.pwidth, this.start + 8, 4));
         bindings.push( new NilBinding(" x "));
-        bindings.push( new DataBinding("" + this.pheight, this.start + 12, 4));
+        bindings.push( new DataBinding_("" + this.pheight, this.start + 12, 4));
         bindings.push( new NilBinding(" "));
 
         var str = (this.type == 1) ? "pixels per metre" : "pixels per (unknown, nonstandard)";
-        bindings.push( new DataBinding("" + str, this.start + 16, 1));
+        bindings.push( new DataBinding_("" + str, this.start + 16, 1));
 
         return {
             start : this.start,

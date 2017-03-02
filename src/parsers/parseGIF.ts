@@ -1,5 +1,5 @@
 import {BinaryReader} from "../binaryReader";
-import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding, CellBinding, SegmentNode}
+import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding_, CellBinding, SegmentNode}
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor, Uint8ToString} from "../util";
@@ -144,7 +144,7 @@ class CommentExtension extends SegmentData {
     constructSegment() : Segment {
         var bindings : Binding[] = [];
 
-        bindings.push( new DataBinding('<span class="comment">'+this.comment+'</span>', this.start+3, this.length));
+        bindings.push( new DataBinding_('<span class="comment">'+this.comment+'</span>', this.start+3, this.length));
 
         return {
             start: this.start,
@@ -176,9 +176,9 @@ class ApplicationExtension extends SegmentData {
         var bindings : Binding[] = [];
 
         bindings.push( new NilBinding( "Application: "));
-        bindings.push( new DataBinding( this.identifier, this.start + 3, 8));
+        bindings.push( new DataBinding_( this.identifier, this.start + 3, 8));
         bindings.push( new NilBinding( "<br />Authentifier: "));
-        bindings.push( new DataBinding( this.authentifier, this.start + 11, 3));
+        bindings.push( new DataBinding_( this.authentifier, this.start + 11, 3));
         return {
             start: this.start,
             length : this.len + this.sublen + 5,
@@ -243,21 +243,21 @@ class ImageDescriptor extends SegmentData {
         var bindings :Binding[] = [];
 
         bindings.push( new NilBinding( "Offset: "));
-        bindings.push( new DataBinding("" + this.left, this.start + 1, 2));
+        bindings.push( new DataBinding_("" + this.left, this.start + 1, 2));
         bindings.push( new NilBinding( " x "));
-        bindings.push( new DataBinding("" + this.top, this.start + 3, 2));
+        bindings.push( new DataBinding_("" + this.top, this.start + 3, 2));
         bindings.push( new NilBinding( "<br />Size: "));
-        bindings.push( new DataBinding("" + this.width, this.start + 5, 2));
+        bindings.push( new DataBinding_("" + this.width, this.start + 5, 2));
         bindings.push( new NilBinding( " x "));
-        bindings.push( new DataBinding("" + this.height, this.start + 7, 2));
+        bindings.push( new DataBinding_("" + this.height, this.start + 7, 2));
         bindings.push( new NilBinding( "<br />Has Local Color Table: "));
-        bindings.push( new DataBinding( ""+this.hasColorTable, this.start + 9, 1));
+        bindings.push( new DataBinding_( ""+this.hasColorTable, this.start + 9, 1));
         bindings.push( new NilBinding( "<br />Color Table Size: "));
-        bindings.push( new DataBinding( ""+this.ctableSize, this.start + 9, 1));
+        bindings.push( new DataBinding_( ""+this.ctableSize, this.start + 9, 1));
         bindings.push( new NilBinding( "<br />Is Sorted: "));
-        bindings.push( new DataBinding( ""+this.sorted, this.start + 9, 1));
+        bindings.push( new DataBinding_( ""+this.sorted, this.start + 9, 1));
         bindings.push( new NilBinding( "<br />Interlaced: "));
-        bindings.push( new DataBinding( ""+this.interlaced, this.start + 9, 1));
+        bindings.push( new DataBinding_( ""+this.interlaced, this.start + 9, 1));
 
         return {
             start : this.start,
@@ -381,25 +381,25 @@ class HeaderSegment extends SegmentData {
         var bindings : Binding[] = [];
 
         bindings.push( new NilBinding( "Signature/Version: "));
-        bindings.push( new DataBinding((this.ver89a?"GIF89a":"GIF87a"), 0, 6));
+        bindings.push( new DataBinding_((this.ver89a?"GIF89a":"GIF87a"), 0, 6));
 
         bindings.push( new NilBinding('<br />Display Size: '));
-        bindings.push( new DataBinding(""+this.width, 6, 2));
+        bindings.push( new DataBinding_(""+this.width, 6, 2));
         bindings.push( new NilBinding(' x '));
-        bindings.push( new DataBinding(""+this.height, 8, 2));
+        bindings.push( new DataBinding_(""+this.height, 8, 2));
         bindings.push( new NilBinding(' (Little Endian)<br />Color Table Size: '));
-        bindings.push( new DataBinding(""+this.ctableSize, 10, 1));
+        bindings.push( new DataBinding_(""+this.ctableSize, 10, 1));
         bindings.push( new NilBinding(' 2<sup>(Smallest 3 bits + 1)</sup><br />Sorted: '));
-        bindings.push( new DataBinding(""+this.sorted, 10, 1));
+        bindings.push( new DataBinding_(""+this.sorted, 10, 1));
         bindings.push( new NilBinding(' (4th smallest bit)<br />Color Resolution of Source: '));
-        bindings.push( new DataBinding(""+this.colorRes, 10, 1));
+        bindings.push( new DataBinding_(""+this.colorRes, 10, 1));
         bindings.push( new NilBinding(' (5th-7th smallest bit)<br />Has Global Table: '));
-        bindings.push( new DataBinding(""+this.globalTable, 10, 1));
+        bindings.push( new DataBinding_(""+this.globalTable, 10, 1));
         bindings.push( new NilBinding(' (largest bit)<br />BG Color Index: '));
         var color = (this.context.globalTable) ? this.context.globalTable.table[this.bgColorIndex] : 0;
-        bindings.push( new DataBinding(""+this.bgColorIndex + '<span class="colorBox" style="background-color:'+ParseColors.rgbToString(color)+'"></span>', 11, 1));
+        bindings.push( new DataBinding_(""+this.bgColorIndex + '<span class="colorBox" style="background-color:'+ParseColors.rgbToString(color)+'"></span>', 11, 1));
         bindings.push( new NilBinding('<br />Pixel Aspect Ratio: ' ));
-        bindings.push( new DataBinding((this.pixelAspectRatio == 0)?"1:1":"nonzero value: I don't actually know what this means.", 12, 1));
+        bindings.push( new DataBinding_((this.pixelAspectRatio == 0)?"1:1":"nonzero value: I don't actually know what this means.", 12, 1));
 
         return {
             start: this.start,

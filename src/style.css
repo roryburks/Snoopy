@@ -112,6 +112,28 @@ body {
 {
     display: block;
 }
+.tfRow
+{
+    width: 100%;
+    display: flex;
+}
+.tfEle /* tfEle is an element in the tree*/
+{
+    display: inline-block;
+    white-space:nowrap;
+    width: 100%;
+}
+.tfGap, .tfExp, .tfCol
+{
+    flex: 0 0 12px;
+    top: 4px;
+    height: 12px;
+    display: inline-block;
+}
+.tfExp {background: url(res/webIcons12x12.png) -26px -13px;}
+.tfExp:hover {background: url(res/webIcons12x12.png) -39px -13px;}
+.tfCol {background: url(res/webIcons12x12.png) -0px -13px;}
+.tfCol:hover {background: url(res/webIcons12x12.png) -13px -13px;}
 #treeField {
     overflow: scroll;
     white-space:nowrap;
@@ -126,7 +148,7 @@ body {
 #tbExpand {
     width: 12px;
     height: 12px;
-    background: url(res/webIcons12x12.png) 26px 0;
+    background: url(res/webIcons12x12.png) 26px 0px;
     display: inline-block;
 }
 #tbShow {
