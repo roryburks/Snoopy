@@ -78,6 +78,7 @@ export class UIManager {
     setBoundSegment( seg : Segment, scrollto?: boolean) {
         if( this.boundSegment == seg) return;
         this.boundSegment = seg;
+        this.hexComponent.setSegment(seg);
 
         if( seg == null) {
             $(this.segmentField).empty();

@@ -5,6 +5,11 @@ import {hexStr, asciiStr} from "../main";
 
 
 
+class Coord {
+    r : number;
+    c : number;
+}
+
 export class CanvasHexComponent  {
     context : UIManager;
 
@@ -18,6 +23,7 @@ export class CanvasHexComponent  {
     visLines : number;
 
     selected : Bound[] = null;
+    currentSegment: Segment = null;
 
     constructor(context : UIManager) {
         this.context = context;
@@ -188,10 +194,13 @@ export class CanvasHexComponent  {
         return dim.height * numLines;
     }
 
+    // Cached for ease of access
     numLines : number;
     startLine : number;
     startByte : number;
     endByte : number;
+    hctx : CanvasRenderingContext2D;
+    actx : CanvasRenderingContext2D;
     private recalculateDims() {
         var dim = this.textDim;
 
@@ -202,8 +211,8 @@ export class CanvasHexComponent  {
         this.endByte = Math.min( this.context.data.length, this.startByte + this.bytesPerLine*this.visLines );
     }
     redraw() {
-        var actx = this.asciiField.getContext("2d");
-        var hctx = this.hexField.getContext("2d");
+        var actx = this.actx = this.asciiField.getContext("2d");
+        var hctx = this.hctx = this.hexField.getContext("2d");
 
         actx.fillStyle = "#AAAAAA";
         actx.fillRect( 0, 0, $(this.asciiField).width(), $(this.asciiField).height());
@@ -220,7 +229,7 @@ export class CanvasHexComponent  {
         if( this.context.parsed && this.context.segments) {
             for( var i=0; i < this.context.segments.length; ++i) {
                 var seg = this.context.segments[i];
-                this.drawBound( { start: seg.start, len: seg.length}, seg.color, hctx, actx);
+                this.drawBound( { start: seg.start, len: seg.length}, seg.color);
             }
         }
 
@@ -228,15 +237,14 @@ export class CanvasHexComponent  {
         if( this.selected) {
             var color = "rgba( 0, 0, 0, 0.2)"
             for( var i=0; i<this.selected.length; ++i) {
-                this.drawBound( this.selected[i], color, hctx, actx);
+                this.drawBound( this.selected[i], color);
             }
         }
 
         // Draw the Highlighted Area
         if( this.highlighted) {
             var color = "rgba( 160, 160, 190, 0.7)"
-            this.drawBound( this.highlighted, color, hctx, actx);
-
+            this.drawBound( this.highlighted, color);
         }
 
 
@@ -277,14 +285,37 @@ export class CanvasHexComponent  {
         actx.stroke();
         hctx.restore();
         actx.restore();
+
+        // Draw Borders
+        if( this.currentSegment) {
+            // Segment
+            var color = "rgb( 0, 255, 0)"
+            var bound : Bound = {
+                start: this.currentSegment.start,
+                len : this.currentSegment.length
+            }
+            this.drawBorder( bound, color, 2);
+        }
+        if( this.selected) {
+            // Selected
+            var color = "rgb( 255, 255, 255)"
+            for( var i=0; i<this.selected.length; ++i) {
+                this.drawBorder( this.selected[i], color, 2);
+            }
+        }
+        if( this.highlighted) {
+            // Highlighted
+            var color = "rgb( 0, 0, 0)"
+            this.drawBorder( this.highlighted, color, 2);
+        }
     }
     
     private drawBound( 
         bound : Bound, 
-        color : string, 
-        hctx : CanvasRenderingContext2D,
-        actx : CanvasRenderingContext2D) 
+        color : string) 
     {
+        var actx = this.actx;
+        var hctx = this.hctx;
         if( !bound) return;
         var dim = this.textDim;
         if( bound.start < this.endByte && bound.start+bound.len > this.startByte) {
@@ -300,6 +331,102 @@ export class CanvasHexComponent  {
                 actx.fillRect( x1*dim.width/2, row*dim.height, (x2-x1)*dim.width/2, dim.height);
                 hctx.fillRect( x1*dim.width, row*dim.height, (x2-x1)*dim.width, dim.height);
             }
+        }
+    }
+
+    private drawBorder(
+        bound : Bound,
+        color : string, 
+        width : number)
+    {
+        if(!bound) return;
+
+        var start = this.toCoord(bound.start);
+        var e = bound.len+bound.start-1;
+        var end = this.toCoord(e);
+        var o = width/2;
+
+        this.beginLine( color, width);
+        if( start.r == end.r) {
+            this.moveTo( start.c, start.r, -o, -o);
+            this.lineTo( end.c+1, start.r, o, -o);
+            this.lineTo( end.c+1, end.r+1, o, o);
+            this.lineTo( start.c, end.r+1, -o, o);
+            this.lineTo( start.c, start.r, -o, -o);
+        }
+        else if( bound.len <= this.bytesPerLine) {
+            var s_2 = this.toCoord(bound.start - (bound.start % this.bytesPerLine) + this.bytesPerLine - 1);
+            var e_2 = this.toCoord(e - (e % this.bytesPerLine));
+            this.moveTo( start.c, start.r, -o, -o);
+            this.lineTo( s_2.c+1, start.r, o, -o);
+            this.lineTo( s_2.c+1, s_2.r+1, o, o);
+            this.lineTo( start.c, s_2.r+1, -o, o);
+            this.lineTo( start.c, start.r, -o, -o);
+            
+            this.moveTo( e_2.c, e_2.r, -o, -o);
+            this.lineTo( end.c+1, e_2.r, o, -o);
+            this.lineTo( end.c+1, end.r+1, o, o);
+            this.lineTo( e_2.c, end.r+1, -o, o);
+            this.lineTo( e_2.c, e_2.r, -o, -o);
+        }
+        else {
+            var br = this.toCoord(e - (e % this.bytesPerLine) - 1);
+            var tl = this.toCoord(bound.start - (bound.start % this.bytesPerLine) + this.bytesPerLine);
+
+            this.moveTo( start.c, start.r, -o, -o);
+            this.lineTo( br.c+1, start.r, o, -o);
+            this.lineTo( br.c+1, br.r+1, o, o);
+            this.lineTo( end.c+1, br.r+1, o, o);
+            this.lineTo( end.c+1, end.r+1, o, o);
+            this.lineTo( tl.c, end.r+1, -o, o);
+            this.lineTo( tl.c, tl.r, -o, -o);
+            this.lineTo( start.c, tl.r, -o, -o);
+            this.lineTo( start.c, start.r, -o, -o);
+        }
+        this.endLine();
+    }
+
+    private beginLine( style : string, lineWidth : number) {
+        var hctx = this.hctx;
+        var actx = this.actx;
+        hctx.strokeStyle = style;
+        actx.strokeStyle = style;
+        hctx.lineWidth = lineWidth;
+        actx.lineWidth = lineWidth;
+        hctx.save();
+        actx.save();
+        hctx.translate(0.5,0.5);
+        actx.translate(0.5,0.5);
+        hctx.beginPath();
+        actx.beginPath();
+    }
+    private endLine() {
+        var hctx = this.hctx;
+        var actx = this.actx;
+        hctx.stroke();
+        actx.stroke();
+        hctx.restore();
+        actx.restore();
+    }
+    private moveTo( c : number, r: number, ox = 0, oy = 0) {
+        this.hctx.moveTo( Math.round(c*this.textDim.width+ ox) , Math.round(r*this.textDim.height+oy));
+        this.actx.moveTo( Math.round(c*this.textDim.width/2+ ox), Math.round(r*this.textDim.height+oy));
+    }
+    private lineTo( c : number, r: number, ox = 0, oy = 0) {
+        this.hctx.lineTo( Math.round(c*this.textDim.width+ox), Math.round(r*this.textDim.height+oy));
+        this.actx.lineTo( Math.round(c*this.textDim.width/2+ox), Math.round(r*this.textDim.height+oy));
+    }
+
+    private toCoordR( n: number) : number {
+        return Math.floor((n- this.startByte)/this.bytesPerLine);
+    }
+    private toCoordC( n : number) : number {
+        return (n-this.startByte)%this.bytesPerLine;
+    }
+    private toCoord( n : number) : Coord {
+        return  {
+            r: Math.floor((n- this.startByte)/this.bytesPerLine),
+            c : (n-this.startByte)%this.bytesPerLine
         }
     }
 
@@ -336,6 +463,11 @@ export class CanvasHexComponent  {
     setHighlighted( bound : Bound) {
         this.highlighted = bound;
         this.redraw();
+    }
+
+    public setSegment( seg : Segment) {
+        this.currentSegment = seg;
+        this.redraw;
     }
 
     

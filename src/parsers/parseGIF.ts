@@ -4,7 +4,6 @@ import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding_, Cell
 import {ParseColors} from "./colors";
 import {randcolor, Uint8ToString} from "../util";
 
-
 export class GIFParser extends Parser {
     parsed : ParseStructure;
 
@@ -149,7 +148,7 @@ class CommentExtension extends SegmentData {
         return {
             start: this.start,
             length : this.length + 4,
-            color : randcolor(),
+            color : ParseColors.comment,
             binding : bindings,
             title : "Comment Extension"
         };
@@ -205,7 +204,7 @@ class GraphicsControlSegment extends SegmentData {
             start : this.start,
             length : this.length + 4,
             binding : [],
-            color : randcolor(),
+            color : "#c72cd3",
             title : "Graphics Control Extension" 
         };
     }
@@ -263,7 +262,7 @@ class ImageDescriptor extends SegmentData {
             start : this.start,
             length : 10,
             binding : bindings,
-            color : randcolor(),
+            color : "#bf983e",
             title : "Image Descriptor"
         };
     }
@@ -293,7 +292,7 @@ class ImageData extends SegmentData {
             start : this.start,
             length : this.len,
             binding : [],
-            color : randcolor(),
+            color : ParseColors.data,
             title : "Image Data"
         };
     }

@@ -20,6 +20,9 @@ export class TreeManager {
             $("#taC").css("display","none");
             $("#taE").css("display","block");
         }));
+        $("#tbExpand").click( ((evt : JQueryEventObject) : any => {
+            this.collapseAll();
+        }).bind(this));
     }
             
     constructTree() {
@@ -32,8 +35,6 @@ export class TreeManager {
         var str = "";
         for( var ci = 0; ci<children.length; ++ci) {
             var ele = document.createElement("div");
-            if(!visible) 
-                $(ele).css("display", "none");
             $(ele).addClass("tfEle");
 
             // Binds a click event to the Tree Entry.
@@ -43,7 +44,8 @@ export class TreeManager {
             //      for the first Node that has a segment (depth-first) and scroll to
             //      its start (while setting the selected segment to null)
 
-            // Note: the let scope effectively binds these two values to the click event
+            // Note: the let scope effectively binds these two values to the click event.
+            //  without them, they would be bound to variables that will have changed
             let seg = children[ci].getSegment();
             let scrollTo : number;
             if( seg) scrollTo = seg.start;
@@ -75,7 +77,13 @@ export class TreeManager {
             $(row).addClass("tfRow");
             if( children[ci].getChildren().length > 0) {
                 var exp = document.createElement('div');
-                $(exp).addClass("tfExp");
+
+                $(exp).addClass(children[ci].isExpanded()?"tfExp":"tfCol");
+                
+                let nnode = children[ci];
+                $(exp).click( ((evt : JQueryEventObject) : any => {
+                    this.toggleExpanded( nnode);
+                }).bind(this));
                 $(row).append(exp);
             }
             else {
@@ -89,14 +97,38 @@ export class TreeManager {
                 $(row).append(exp);
             }
             $(row).append( ele);
+            if(!visible)
+                $(row).css("display", "none");
             $(this.treeField).append( row);
 
             // Construct the rest
-            this.constructTreeRec( children[ci], depth+1, visible && node.isExpanded());
+            this.constructTreeRec( children[ci], depth+1, visible && children[ci].isExpanded());
         }
     }
 
-    private toggleExpanded( nod : SegmentNode) {
+    private toggleExpanded( node : SegmentNode) {
+        node.setExpanded( !node.isExpanded());
+        this.reevaluateExpandedState();
+    }
 
+    private collapseAll() {
+        var p = this.context.parsed;
+
+        if( p)
+            this._caRec(p.segmentTree.getRoot());
+        this.reevaluateExpandedState();
+    }
+    private _caRec(node:  SegmentNode) {
+        var children = node.getChildren();
+        for( var i=0; i < children.length; ++i) {
+            children[i].setExpanded(false);
+            this._caRec( children[i]);
+        }
+    }
+    
+    private reevaluateExpandedState() {
+        // This can be done much more efficiently by showing/hiding, which
+        //  would require some binding between node and HTML element
+        this.constructTree();
     }
 }

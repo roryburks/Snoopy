@@ -5,6 +5,7 @@ export module ParseColors {
     export const palette = "#44AA44";
     export const marker = "#22AAAA";
     export const data = "#5555AA";
+    export const comment = "#77C877"
     export const _data = 0x5555AA;
 
     var seed : {[key:number]: number} = {};
