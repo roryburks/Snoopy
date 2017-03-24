@@ -73,6 +73,11 @@ export class CanvasHexComponent  {
         $(this.asciiField).mouseup(((evt : JQueryEventObject) : any => {
             this.endDrag( evt.originalEvent as MouseEvent, false);
         }).bind(this));
+
+        $(window).resize(((evt : JQueryEventObject) : any => {
+            // TODO
+        }).bind(this));
+
     }
 
     private selectionChanged() {
@@ -474,6 +479,5 @@ export class CanvasHexComponent  {
     public scrollTo( index : number) {
         var dim = this.textDim;
         this.context.scrollBar.scrollTop = Math.floor(index / this.bytesPerLine) * dim.height;
-        console.log(this.context.scrollBar.scrollTop  );
     }
 }

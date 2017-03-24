@@ -192,18 +192,49 @@ class ApplicationExtension extends SegmentData {
 
 class GraphicsControlSegment extends SegmentData {
     length : number;
+    transparent : boolean;
+    userInput : boolean;
+    disposal : number;
+    delay : number;
+    transIndex : number;
     constructor( reader : BinaryReader, start:number, context : GIFParser, length : number) {
         super( reader, start, context);
         this.length = length;
 
         var packed = reader.readByte();
-        // TODO
+
+        this.transparent = (packed & 1) != 0;
+        this.userInput = ((packed>>>1) & 1) != 0;
+        this.disposal = (packed >>> 2) & 0x7;
+        this.delay = reader.readUShortLE();
+        this.transIndex = reader.readByte();
     }
     constructSegment() : Segment {
+        var bindings :Binding[] = [];
+        
+        bindings.push( new NilBinding( "Is Transparent: "));
+        bindings.push( new DataBinding_("" + this.transparent, this.start + 3, 1));
+        bindings.push( new NilBinding( "<br/>Waits for User Input: "));
+        bindings.push( new DataBinding_("" + this.userInput, this.start + 3, 1));
+        bindings.push( new NilBinding( "<br/>Disposal Method:"));
+        var str : string;
+        switch( this.disposal) {
+        case 0: str = "No disposal method specified"; break;
+        case 1: str = "Do not dispose."; break;
+        case 2: str = "Restore to background color"; break;
+        case 3: str = "Restore to previous."; break;
+        default: str = "Unknown disposal method."; break;
+        }
+        bindings.push( new DataBinding_(this.disposal + ": " + str, this.start + 3, 1));
+        bindings.push( new NilBinding( "<br/>Delay Time (1/100*value, in ms): "));
+        bindings.push( new DataBinding_("" + this.delay/100, this.start + 4, 2));
+        bindings.push( new NilBinding( "<br/>Transparent Index: "));
+        bindings.push( new DataBinding_("" + ((this.transparent)?this.transIndex:"unused"), this.start + 6, 1));
+
         return {
             start : this.start,
             length : this.length + 4,
-            binding : [],
+            binding : bindings,
             color : "#c72cd3",
             title : "Graphics Control Extension" 
         };

@@ -16,17 +16,34 @@ body {
 #btnStart { display: inline-block;}
 
 #leftContainer {
-    
     float: left;
-    width: 63%;
-    margin: 5px;
+    width: 66%;
+    margin: 0px;
+}
+
+#ulCon {
+    display: flex;
+    padding: 0px;
+    margin: 5px 0 0 0;
 }
 
 #visualField{
-    background-color: #00AA00;
+    border-width: 2px ;
+    border-color: #444488;
+    border-style: solid;
+    padding: 2px;
+    margin: 0 0 0 4px;
+    border-radius: 4px;
+    background-color: #66AA66;
     height: 500px;
     width: 100%;
     overflow: auto;
+}
+
+#treeArea {
+/*    position: absolute;
+    top: 30px;
+    left: 0;*/
 }
 
 #editorField {
@@ -85,21 +102,30 @@ body {
 #segmentField {
     border-width: 2px ;
     border-color: #444488;
-    border-style: solid solid solid none;
-    padding: 2px 2px 2px 0;
-    border-radius: 4px 4px 4px 4px;
-    width: 200px;
+    border-style: solid;
+    padding: 2px;
+    border-radius: 4px;
     width: 100%;
-    margin-top: 10px;
+    margin: 10px 5px 5px 5px;
     background-color: #DDDDDD;
 /*    overflow: scroll;*/
 }
 
-#treeArea {
-    position: absolute;
-    top: 30px;
-    left: 0;
+#segmentTop {
+    background-color: #DDDDAA;
+    border-color: #444488;
+    border-bottom-style: double;
+    min-height: 20px;
 }
+#segmentTitle {
+}
+#segmentBin {
+    float: right;
+    border-left-style: solid;
+    border-color: black;
+    border-width: 2px;
+}
+
 #treeSeparator {
     border-style: double none double none;
 }

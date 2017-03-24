@@ -12,7 +12,8 @@ export class UIManager {
     data  : Uint8Array;
     scrollBar : HTMLDivElement;
     scrollField : HTMLDivElement;
-    segmentField : HTMLDivElement;
+    segmentContent : HTMLDivElement;
+    segmentTitle : HTMLElement;
     parsed : ParseStructure;
     segments : Segment[];
     filename : string;
@@ -28,7 +29,9 @@ export class UIManager {
         
         this.scrollBar = $("#efsContainer").get(0) as HTMLDivElement;
         this.scrollField = $("#efScroll").get(0) as HTMLDivElement;
-        this.segmentField = $("#segmentField").get(0) as HTMLDivElement;
+        this.segmentContent = $("#segmentContent").get(0) as HTMLDivElement;
+        this.segmentTitle = $("#segmentTitle").get(0);
+
 
         this.initComponents();
         this.initBindings();
@@ -81,13 +84,13 @@ export class UIManager {
         this.hexComponent.setSegment(seg);
 
         if( seg == null) {
-            $(this.segmentField).empty();
+            $(this.segmentContent).empty();
             return;
         }
 
+        this.segmentTitle.innerHTML = seg.title;
         var str : string = "";
 
-        str += seg.title + "<br />";
 
         if( seg.binding) {
             for( var i=0; i < seg.binding.length; ++i) {
@@ -100,7 +103,7 @@ export class UIManager {
                 }
                 else str += html;
             }
-            $(this.segmentField).get(0).innerHTML = str;
+            $(this.segmentContent).get(0).innerHTML = str;
             for( var i=0; i < seg.binding.length; ++i) {
                 if( seg.binding[i].binding) {
                     {
@@ -119,7 +122,7 @@ export class UIManager {
                 }
             }
         }
-        else $(this.segmentField).get(0).innerHTML = str;
+        else $(this.segmentContent).get(0).innerHTML = str;
 
         if( scrollto && seg ) {
             this.scrollTo(seg.start);
@@ -157,10 +160,10 @@ export class UIManager {
                         continue;
                         
                     sel = true;
-                    $(this.segmentField).find(".dbnd"+i).addClass("sfSel");
+                    $(this.segmentContent).find(".dbnd"+i).addClass("sfSel");
                 }
                 if( !sel) {
-                    $(this.segmentField).find(".dbnd"+i).removeClass("sfSel");
+                    $(this.segmentContent).find(".dbnd"+i).removeClass("sfSel");
                 }
             }
         }

@@ -9,20 +9,29 @@
     <body>
         <div><input id="fileinput" type="file" /><button id="btnStart">Load</button></div>
 
-        <div id="treeArea">
-            <div id="taE">
-                <div id="treeTitle"><span>File Outline</span>
-                    <span id="tbIcons"><div id="tbExpand"></div><div id="tbHide"></div></span>
-                </div>
-                <div id="treeSeparator"></div>
-                <div id="treeField"></div>
-            </div>
-            <span id="taC"><div id="tbShow"></div></span>
-        </div>
 
         <div id="leftContainer">
-            <div id="visualField"></div>
-            <div id="segmentField"></div>
+            <div id="ulCon">
+                    
+                <span id="treeArea">
+                    <div id="taE">
+                        <div id="treeTitle"><span>File Outline</span>
+                            <span id="tbIcons"><div id="tbExpand"></div><div id="tbHide"></div></span>
+                        </div>
+                        <div id="treeSeparator"></div>
+                        <div id="treeField"></div>
+                    </div>
+                    <span id="taC"><div id="tbShow"></div></span>
+                </span>
+                <span id="visualField"></span>
+            </div>
+            <div id="segmentField">
+                <div id="segmentTop">
+                    <span id="segmentTitle"> </span>
+                    <span id="segmentBin">001</span>
+                </div>
+                <div id="segmentContent"></div>
+            </div>
         </div>
         <div id="editorField">
             <canvas id="hexField"></canvas>
