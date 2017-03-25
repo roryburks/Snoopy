@@ -4,7 +4,7 @@ import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding_,
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor,Uint8ToString} from "../util";
-import {BinaryReaderLinker, BinLinks} from "./binReaderLinker";
+import {BinaryReaderLinker, BinLinks, SpecialLinks} from "./binReaderLinker";
 
 export class PNGParser extends Parser {
     parsed : ParseStructure;
@@ -26,7 +26,7 @@ export class PNGParser extends Parser {
         return this.error;
     }
     parseHeader() : boolean {
-        var sign = this.lread.readBytes(8);
+        var sign = this.lread.readBytes(8).get(this.data);
         
         if( !sign ||  sign[0] != 137 || sign[1] != 80 || sign[2] != 78 || sign[3] != 71 ||
             sign[4] != 13 || sign[5]!=10 || sign[6]!=26 || sign[7] != 10) 
@@ -45,9 +45,9 @@ export class PNGParser extends Parser {
         return true;
     }
     parseChunk() : boolean {
-        var start = this.lread.getSeek();
-        var len = this.lread.readUInt();
-        var type = this.lread.readUTF8StrLen(4);
+        var start : number = this.lread.getSeek();
+        var len : number = this.lread.readUInt().get(this.data);
+        var type :string = this.lread.readUTF8StrLen(4).get(this.data);
         var data : SegmentData;
         switch( type) {
         case "IHDR": data = new IHDRData(this.lread, start, len + 12);break;
@@ -76,19 +76,21 @@ export class PNGParser extends Parser {
     }
 }
 
-function bindingsForChunk( chunk : string, start: number, len : number, bindings : Binding[]) : Binding[]{
-    var ret : Binding[] = [];
-    ret.push( new NilBinding('<span class="chunkDesc">Segment Header: '));
-    ret.push( new DataBinding_(chunk, start + 4, 4));
-    ret.push( new NilBinding(" Length: "));
-    ret.push( new DataBinding_(""+(len-12),start, 4));
-    ret.push( new NilBinding("<br /></span>"));
-
-    ret = ret.concat( bindings);
-
-    ret.push( new DataBinding_('<span class="chunkDesc"><br />Data Checksum.</span>', start+8 + (len-12), 4));
-
-    return ret;
+function appendChunkHeaders( 
+    start: number, 
+    len: number, 
+    links : DataLink[], 
+    uiComponents : UIComponent[]) 
+{
+    var cLen = new BinLinks.UIntLink(start);
+    var cHead = new BinLinks.UTF8StrLink(start+4,4);
+    var cSum = new BinLinks.BytesLink(start+len-4, 4);
+    uiComponents.unshift( new UIComponents.SimpleUIC(
+        '<span class="chunkDesc">Segment Header: %d Length: %d</span><br />',
+        links.push(cLen)-1, links.push(cHead)-1));
+    uiComponents.push( new UIComponents.SimpleUIC(
+        '<span class="chunkDesc"><br />Data Checksum: %d</span>',
+        links.push( cSum)-1));
 }
 
 abstract class SegmentData {
@@ -110,15 +112,16 @@ class UnknownSegment extends SegmentData {
         this.type = type;
     }
     constructSegment() : Segment {
-        return {
+        var seg : Segment = {
             start : this.start,
             length : this.length,
             color : "#FFFFFF",
             uiComponents : [],
             links : [],
-//            binding : bindingsForChunk(this.type, this.start, this.length, []),
             title : this.type + " Chunk"
         };
+        appendChunkHeaders( this.start, this.length, seg.links, seg.uiComponents);
+        return seg;
     }
 }
 
@@ -127,88 +130,79 @@ class ImageData extends SegmentData {
         super( reader, start, len);
     }
     constructSegment() : Segment {
-        return {
+        var seg : Segment =  {
             start : this.start,
             length : this.length,
             color : ParseColors.cyclingColor(ParseColors._data),
             uiComponents : [],
             links : [],
-//            binding : bindingsForChunk("IDAT", this.start, this.length, []),
             title : "Image Data Stream"
         };
+        appendChunkHeaders( this.start, this.length, seg.links, seg.uiComponents);
+        return seg;
     }
 }
 
 class IHDRData extends SegmentData {
-    width : number;
-    height : number;
+    width : BinLinks.UIntLink;
+    height : BinLinks.UIntLink;
     bitDepth : BinLinks.ByteLink;
-    colorType : BinLinks.ByteLink;
-    compressionMethod: BinLinks.ByteLink;
-    filterMethod : BinLinks.ByteLink;
-    interlaceMethod : BinLinks.ByteLink;
+    colorType : DataLink;
+    compressionMethod: DataLink;
+    filterMethod : DataLink;
+    interlaceMethod : DataLink;
     constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
         this.width = reader.readUInt();
         this.height = reader.readUInt();
         this.bitDepth = reader.readByte();
-        this.colorType = reader.readByte();
-        this.compressionMethod = reader.readByte();
-        this.filterMethod = reader.readByte();
-        this.interlaceMethod = reader.readByte();
-
-    }
-    getColorTypeName() : string {
-        switch( this.colorType.get(this.reader.buffer)) {
-            case 0: return "Greyscale";
-            case 2: return "Truecolour";
-            case 3: return "Indexed-colour";
-            case 4: return "Greyscale with alpha";
-            case 6: return "Truecolour with alpha";
-        }
+        this.colorType = new SpecialLinks.EnumLink(
+            reader.readByte(), 
+            {
+                "0":"Greyscale",
+                "2":"Truecolour",
+                "3":"Indexed-colour",
+                "4":"Greyscale with alpha",
+                "6":"Truecolour with alpha"
+            }, "Unknown Color Type");
+        this.compressionMethod = new SpecialLinks.EnumLink(
+            reader.readByte(), 
+            {"0":"Deflate/Inflate Compression"}, 
+            "Nonstandard Compression Method");
+        this.filterMethod = new SpecialLinks.EnumLink(
+            reader.readByte(), 
+            {"0":"Adaptive Filtering"}, 
+            "Nonstandard Filtering Method");
+        this.interlaceMethod = new SpecialLinks.EnumLink(
+            reader.readByte(), 
+            {"0":"No Interlacing", "1":"Adam7 Interlacing"}, 
+            "Nonstandard Interlacing Method");
     }
     constructSegment() : Segment {
-        var seg = new Segment();
-        seg.start = this.start;
-        seg.length = this.length;
-        seg.color = randcolor();
-        seg.title = "IHDR Chunk (Image Header)";
-
-        var bindings : Binding[] = [];
         var uiComponents : UIComponent[] = [];
         var links : DataLink[] = [];
 
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Image Dimensions: %d<br />", 
+            "Image Dimensions: %d x %d <br />", 
+            links.push( this.width)-1, links.push( this.height)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Bit Depth: %d bit<br />", 
             links.push( this.bitDepth)-1));
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Image Dimensions: %d", 
-            links.push( this.bitDepth)-1));
-//        var links : DataL
+            "Color Type: %d<br />", 
+            links.push( this.colorType)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Compression Method: %d <br />", 
+            links.push( this.compressionMethod)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Filter Method: %d <br />", 
+            links.push( this.filterMethod)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Interlace Method: %d <br />", 
+            links.push( this.interlaceMethod)-1));
 
-/*        var str : string;
-        bindings.push( new NilBinding("Image Dimensions: "));
-        bindings.push( new DataBinding_(""+this.width, this.start + 8, 4));
-        bindings.push( new NilBinding("x"));
-        bindings.push( new DataBinding_(""+this.height, this.start + 12, 4));
-        bindings.push( new NilBinding("<br />Bit Depth: "));
-        bindings.push( new DataBinding_(""+this.bitDepth, this.start + 16, 1));
-        bindings.push( new NilBinding("<br />Color Type: "));
-        bindings.push( new DataBinding_(this.getColorTypeName(), this.start + 17, 1));
-        bindings.push( new NilBinding("<br />Compression Method: "));
-        str = (this.compressionMethod == 0) ? "Default Compression (Deflate/Inflate Compression)" : "Nonstandard Compression Method";
-        bindings.push( new DataBinding_(str, this.start + 18, 1));
-        bindings.push( new NilBinding("<br />Filter Method: "));
-        str = (this.filterMethod == 0) ? "Default Filter (Adaptive Filtering)" : "Nonstandard Filtering Method";
-        bindings.push( new DataBinding_(str, this.start + 19, 1));
-        bindings.push( new NilBinding("<br />Interlace Method: "));
-        if( this.interlaceMethod == 0) str = "No Interlacing";
-        else if( this.interlaceMethod == 1) str = "Adam7 Interlacing";
-        else str = "Nonstandard Interlacing Method";
-        bindings.push( new DataBinding_(str, this.start + 20, 1));*/
-
-//        seg.binding = bindingsForChunk("IHDR", this.start, this.length,  bindings);
+        appendChunkHeaders( this.start, this.length, links, uiComponents);
 
         return {
             start: this.start,
@@ -222,34 +216,36 @@ class IHDRData extends SegmentData {
 }
 
 class sRGBData extends SegmentData {
-    intent : number;
+    intent : DataLink;
     constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
-        this.intent = this.reader.readByte().get(reader.buffer);
+        this.intent = new SpecialLinks.EnumLink(
+            this.reader.readByte(),
+            {
+                "0":"Perceptual",
+                "1":"Reltive Colorimetric",
+                "2":"Saturation",
+                "3":"Absolute colorimetric"
+            },  "Unknown, nonstandard");
+        
+        this.reader.readByte().get(reader.buffer);
     }
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
+        var uiComponents : UIComponent[] = [];
+        var links : DataLink[] = [];
 
-        bindings.push(new NilBinding("Rendering Intent: "));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Rendering Intend: %d", links.push(this.intent)-1));
 
-        var str : string;
-        switch( this.intent) {
-            case 0: str = "Perceptual"; break;
-            case 1: str = "Reltive Colorimetric"; break;
-            case 2: str = "Saturation"; break;
-            case 3: str = "Absolute colorimetric"; break;
-            default: str = "Unknown, nonstandard"; break;
-        }
-        bindings.push( new DataBinding_(str, 12, 1));
+        appendChunkHeaders( this.start, this.length, links, uiComponents);
 
         return {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            uiComponents : [],
-            links : [],
-//            binding : bindingsForChunk("sRGB", this.start, this.length, bindings),
+            uiComponents : uiComponents,
+            links : links,
             title : "sRGB Chunk"
         };
     }
@@ -257,83 +253,85 @@ class sRGBData extends SegmentData {
 
 
 class gAMAData extends SegmentData {
-    gamma : number;
+    gamma : DataLink;
     constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
-        this.gamma = reader.readUInt() / 1000000;
+        this.gamma = new SpecialLinks.FactorLink( reader.readUInt(), 1000000);
     }
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
-        bindings.push( new NilBinding("Gamma (uInt / 1000000): "));
-        bindings.push( new DataBinding_("" + this.gamma, this.start + 8, 4));
+        var uiComponents : UIComponent[] = [];
+        var links : DataLink[] = [];
+
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Gamma: %d (1/1000000 of stored value)", links.push(this.gamma)-1));
+
+        appendChunkHeaders( this.start, this.length, links, uiComponents);
 
         return {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            uiComponents : [],
-            links : [],
-//            binding : bindingsForChunk("gAMA", this.start, this.length, bindings),
+            uiComponents : uiComponents,
+            links : links,
             title : "gAMA Chunk"
         };
     }
 }
 
 class pHYsData extends SegmentData {
-    pwidth : number;
-    pheight : number;
-    type : number;
+    pwidth : BinLinks.UIntLink;
+    pheight : BinLinks.UIntLink;
+    type : DataLink;
     constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
         this.pwidth = reader.readUInt();
         this.pheight = reader.readUInt();
-        this.type = reader.readByte().get(reader.buffer);
+        this.type = new SpecialLinks.EnumLink( reader.readByte(),
+            {"1": "square meter"}, "unspecified unit");
     }
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
-        bindings.push( new NilBinding("Physical Pixel Dimensions (1 pixel = ):<br />"));
-        bindings.push( new DataBinding_("" + this.pwidth, this.start + 8, 4));
-        bindings.push( new NilBinding(" x "));
-        bindings.push( new DataBinding_("" + this.pheight, this.start + 12, 4));
-        bindings.push( new NilBinding(" "));
+        var uiComponents : UIComponent[] = [];
+        var links : DataLink[] = [];
 
-        var str = (this.type == 1) ? "pixels per metre" : "pixels per (unknown, nonstandard)";
-        bindings.push( new DataBinding_("" + str, this.start + 16, 1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Physical Pixel Dimensions: %d x %d piexels per %d",
+            links.push( this.pwidth)-1, links.push( this.pheight)-1, links.push(this.type)-1));
+
+        appendChunkHeaders( this.start, this.length, links, uiComponents);
 
         return {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            uiComponents : [],
-            links : [],
-//            binding : bindingsForChunk("pHYs", this.start, this.length, bindings),
+            uiComponents : uiComponents,
+            links : links,
             title : "pHYs Chunk"
         };
     }
 }
 
 class cHRMData extends SegmentData {
-    whitex : number;
-    whitey : number;
-    redx : number;
-    redy : number;
-    greenx : number;
-    greeny : number;
-    bluex : number;
-    bluey : number;
+    whitex : BinLinks.UIntLink;
+    whitey : BinLinks.UIntLink;
+    redx : BinLinks.UIntLink;
+    redy : BinLinks.UIntLink;
+    greenx : BinLinks.UIntLink;
+    greeny : BinLinks.UIntLink;
+    bluex : BinLinks.UIntLink;
+    bluey : BinLinks.UIntLink;
     constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
-        this.whitex = reader.readUInt() / 100000; //8
-        this.whitey = reader.readUInt() / 100000; //12
-        this.redx = reader.readUInt() / 100000;   //16
-        this.redy = reader.readUInt() / 100000;   //20
-        this.greenx = reader.readUInt() / 100000; //24 
-        this.greeny = reader.readUInt() / 100000; //28
-        this.bluex = reader.readUInt() / 100000;  //32
-        this.bluey = reader.readUInt() / 100000;  //36
+        this.whitex = reader.readUInt()// / 100000; //8
+        this.whitey = reader.readUInt()// / 100000; //12
+        this.redx = reader.readUInt()// / 100000;   //16
+        this.redy = reader.readUInt()// / 100000;   //20
+        this.greenx = reader.readUInt()// / 100000; //24 
+        this.greeny = reader.readUInt()// / 100000; //28
+        this.bluex = reader.readUInt()// / 100000;  //32
+        this.bluey = reader.readUInt()// / 100000;  //36
     }
 
     constructSegment() : Segment {
