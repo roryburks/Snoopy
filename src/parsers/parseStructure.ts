@@ -145,6 +145,37 @@ export module UIComponents {
             return this.comment;
         }
     }
+
+    export class ComplexUIC implements UIComponent {
+        // TODO: It would probably be more intuitive and faster to bind links
+        //  to a certain piece and replace it mid-piece instead of once the entire
+        //  string is constructed
+        pieces : string[] = [];
+        links : number[] = [];
+        
+        addPiece( piece : string, ...links: number[]) {
+            this.pieces.push(piece);
+
+            if( links) {
+                for( var i=0; i < links.length; ++i)
+                    this.links.push( links[i]);
+            }
+        }
+        buildUI(context : Segment, data: Uint8Array) : string{
+            var str = "";
+
+            for( var i=0; i < this.pieces.length; ++i) {
+                str += this.pieces[i];
+                console.log(str);
+            }
+            for( var i=0; i < this.links.length; ++i) {
+                str = str.replace('%c','db_'+this.links[i]);
+                str = str.replace('%d',context.links[this.links[i]].getValue(data));
+            }
+
+            return str;
+        }
+    }
 }
 
 export class Segment {

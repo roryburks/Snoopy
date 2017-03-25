@@ -313,49 +313,69 @@ class pHYsData extends SegmentData {
 }
 
 class cHRMData extends SegmentData {
-    whitex : BinLinks.UIntLink;
-    whitey : BinLinks.UIntLink;
-    redx : BinLinks.UIntLink;
-    redy : BinLinks.UIntLink;
-    greenx : BinLinks.UIntLink;
-    greeny : BinLinks.UIntLink;
-    bluex : BinLinks.UIntLink;
-    bluey : BinLinks.UIntLink;
+    whitex : SpecialLinks.FactorLink;
+    whitey : SpecialLinks.FactorLink;
+    redx : SpecialLinks.FactorLink;
+    redy : SpecialLinks.FactorLink;
+    greenx : SpecialLinks.FactorLink;
+    greeny :SpecialLinks.FactorLink;
+    bluex : SpecialLinks.FactorLink;
+    bluey : SpecialLinks.FactorLink;
     constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
-        this.whitex = reader.readUInt()// / 100000; //8
-        this.whitey = reader.readUInt()// / 100000; //12
-        this.redx = reader.readUInt()// / 100000;   //16
-        this.redy = reader.readUInt()// / 100000;   //20
-        this.greenx = reader.readUInt()// / 100000; //24 
-        this.greeny = reader.readUInt()// / 100000; //28
-        this.bluex = reader.readUInt()// / 100000;  //32
-        this.bluey = reader.readUInt()// / 100000;  //36
+        this.whitex = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
+        this.whitey = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
+        this.redx = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
+        this.redy = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
+        this.greenx = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
+        this.greeny = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
+        this.bluex = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
+        this.bluey = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
     }
 
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
+        var uiComponents : UIComponent[] = [];
+        var links : DataLink[] = [];
 
-        bindings.push( new NilBinding( 'Color Space (each number is stored as a UInt which is equal to 100000*its intended value):<br /><table class="simpleTable"><tr><th></th><th>R</th><th>G</th><th>B</th><th>White</th></tr><tr><td>x</td>'))
-        bindings.push( new CellBinding(""+this.redx, this.start + 16, 4));
-        bindings.push( new CellBinding(""+this.greenx, this.start + 24, 4));
-        bindings.push( new CellBinding(""+this.bluex, this.start + 32, 4));
-        bindings.push( new CellBinding(""+this.whitex, this.start + 8, 4));
-        bindings.push( new NilBinding('</tr><tr><td>y</td>'));
-        bindings.push( new CellBinding(""+this.redy, this.start + 20, 4));
-        bindings.push( new CellBinding(""+this.greeny, this.start + 28, 4));
-        bindings.push( new CellBinding(""+this.bluey, this.start + 36, 4));
-        bindings.push( new CellBinding(""+this.whitey, this.start + 12, 4));
-        bindings.push( new NilBinding('</tr></table>'));
+        var comp = new UIComponents.ComplexUIC();
+        comp.addPiece('\
+Color Space (each number is stored as a UInt which is equal to 100000*its intended value):<br />\
+<table class="simpleTable">\
+    <tr>\
+        <th></th>\
+        <th>R</th>\
+        <th>G</th>\
+        <th>B</th>\
+        <th>White</th>\
+    </tr>\
+    <tr>\
+        <td>x</td>');
+        comp.addPiece('<td class="%c">%d</td>', links.push( this.redx)-1);
+        comp.addPiece('<td class="%c">%d</td>', links.push( this.greenx)-1);
+        comp.addPiece('<td class="%c">%d</td>', links.push( this.bluex)-1);
+        comp.addPiece('<td class="%c">%d</td>', links.push( this.whitex)-1);
+        comp.addPiece('\
+    </tr>\
+    <tr>\
+        <td>y</td>');
+        comp.addPiece('<td class="%c">%d</td>', links.push( this.redy)-1);
+        comp.addPiece('<td class="%c">%d</td>', links.push( this.greeny)-1);
+        comp.addPiece('<td class="%c">%d</td>', links.push( this.bluey)-1);
+        comp.addPiece('<td class="%c">%d</td>', links.push( this.whitey)-1);
+        comp.addPiece('\
+    </tr>\
+</table>');
+        uiComponents.push( comp);
+
+        appendChunkHeaders( this.start, this.length, links, uiComponents);
 
         return {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            uiComponents : [],
-            links : [],
-//            binding : bindingsForChunk("cHRM", this.start, this.length, bindings),
+            uiComponents : uiComponents,
+            links : links,
             title : "cHRM Chunk"
         };
     }
