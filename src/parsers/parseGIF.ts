@@ -40,7 +40,8 @@ export class GIFParser extends Parser {
                     start : this.reader.getSeek()-1,
                     length : 1,
                     color : "#AACCCC",
-                    binding : [],
+                    uiComponents : [],
+                    links : [],
                     title : "Trailer (End of File Marker)"
                 });
                 break;
@@ -125,7 +126,8 @@ class UnknownBlock extends SegmentData {
             start: this.start,
             length : this.length + 4,
             color : randcolor(),
-            binding : [],
+            uiComponents : [],
+            links : [],
             title : "Unknown Block Type: " + this.id.toString(16)
         };
     }
@@ -149,7 +151,8 @@ class CommentExtension extends SegmentData {
             start: this.start,
             length : this.length + 4,
             color : ParseColors.comment,
-            binding : bindings,
+            uiComponents : [],
+            links : [],
             title : "Comment Extension"
         };
     }
@@ -182,7 +185,8 @@ class ApplicationExtension extends SegmentData {
             start: this.start,
             length : this.len + this.sublen + 5,
             color : randcolor(),
-            binding : bindings,
+            uiComponents : [],
+            links : [],
             title : "Application Block"
         };
     }
@@ -234,13 +238,14 @@ class GraphicsControlSegment extends SegmentData {
         return {
             start : this.start,
             length : this.length + 4,
-            binding : bindings,
+            uiComponents : [],
+            links : [],
             color : "#c72cd3",
             title : "Graphics Control Extension" 
         };
     }
-
 }
+//        this.transparent = new Segments2.BoolBitLink( reader, 0);
 
 class ImageDescriptor extends SegmentData {
     left : number;
@@ -292,7 +297,8 @@ class ImageDescriptor extends SegmentData {
         return {
             start : this.start,
             length : 10,
-            binding : bindings,
+            uiComponents : [],
+            links : [],
             color : "#bf983e",
             title : "Image Descriptor"
         };
@@ -322,7 +328,8 @@ class ImageData extends SegmentData {
         return {
             start : this.start,
             length : this.len,
-            binding : [],
+            uiComponents : [],
+            links : [],
             color : ParseColors.data,
             title : "Image Data"
         };
@@ -366,7 +373,8 @@ class ColorTable extends SegmentData {
             start: this.start,
             length : this.size * 3,
             color : ParseColors.palette,
-            binding : bindings,
+            uiComponents : [],
+            links : [],
             title : "Color Table"
         };
     }
@@ -434,7 +442,8 @@ class HeaderSegment extends SegmentData {
         return {
             start: this.start,
             length: 13,
-            binding : bindings,
+            uiComponents : [],
+            links : [],
             color : ParseColors.header,
             title: "Header"
         };

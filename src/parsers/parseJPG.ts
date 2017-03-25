@@ -45,7 +45,9 @@ class JPGParser extends Parser{
             length : 2,
             color : "#a0a2de",
             title : "Start of Image",
-            binding : [new DataBinding_("0xFF", 0, 1), new NilBinding(" "), new DataBinding_("0xD8",1,1)]
+            uiComponents : [],
+            links : [],
+//            binding : [new DataBinding_("0xFF", 0, 1), new NilBinding(" "), new DataBinding_("0xD8",1,1)]
         });
 
         return true;
@@ -95,7 +97,8 @@ class JPGParser extends Parser{
                 start: this.reader.getSeek(),
                 length: this.reader.getLength() - this.reader.getSeek(),
                 color: ParseColors.data,
-                binding: [],
+                uiComponents : [],
+                links : [],
                 title: "Image Data"
             });
             return false;
@@ -114,7 +117,8 @@ class JPGParser extends Parser{
                 length : 2,
                 color: "#777777",
                 title: "End of Scan (end of file)",
-                binding: []
+                uiComponents : [],
+                links : [],
             });
             return false;
         default:
@@ -140,7 +144,8 @@ class JPGParser extends Parser{
         else str = "Unknown Tag: " + hexStr(marker);
 
         this.parsed.segmentTree.getRoot().addSegment( {
-            binding : [],
+            uiComponents : [],
+            links : [],
             start: start,
             length: length,
             title : str,
@@ -195,7 +200,8 @@ function markerSegment(marker : number, start: number, len: number, descriptor:s
     return {
         start: start, 
         length: 4,
-        binding:bindings, 
+        uiComponents : [],
+        links : [],
         color: ParseColors.marker, 
         title: descriptor
     }
@@ -295,8 +301,15 @@ class JFIFData extends SegmentBuilder {
         }
 
 
-        seg.binding = bindings
-        return seg;
+
+        return {
+            uiComponents : [],
+            links : [],
+            start: this.start,
+            length: this.length,
+            title: "JFIF Application Data",
+            color: "#bfc67f",
+        };
     }
 }
 
@@ -414,7 +427,8 @@ class QuantTableData extends SegmentBuilder {
         }
         bindings.push( new NilBinding('</table><span class="matrixRight"></span></div>'));
 
-        seg.binding = bindings;
+        seg.uiComponents = [];
+        seg.links = [];
 
         return seg;
     }
@@ -486,7 +500,6 @@ class SOFData extends SegmentBuilder {
             bindings.push( new DataBinding_(""+this.cQTable[i], start+10+i*3+2, 1));
         }
 
-        seg.binding = bindings;
 
         return seg;
     }
@@ -571,7 +584,6 @@ class HuffmanData extends SegmentBuilder {
         bindings.push( new NilBinding( '</table>'));
 
 
-        seg.binding = bindings;
 
         return seg;
     }
@@ -674,7 +686,8 @@ class SOSData extends SegmentBuilder {
             start: this.start,
             length: this.length,
             color: "#AAAA55",
-            binding: bindings,
+            uiComponents : [],
+            links : [],
             title: "Start of Scan Block"
         }
     }

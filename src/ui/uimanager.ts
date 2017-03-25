@@ -61,6 +61,7 @@ export class UIManager {
             getFileExtension(this.filename), this.data);
         this.parsed = (parser)?parser.parse() : null;
 
+
         $("#visualField").empty();
         if( this.parsed) {
             $("#visualField").html( this.parsed.visualHTML );
@@ -79,47 +80,34 @@ export class UIManager {
 
     boundSegment : Segment;
     setBoundSegment( seg : Segment, scrollto?: boolean) {
+        // Set the bound segment internally
         if( this.boundSegment == seg) return;
         this.boundSegment = seg;
         this.hexComponent.setSegment(seg);
 
+        // If the segment is null, empty out the segment
         if( seg == null) {
             $(this.segmentContent).empty();
             return;
         }
 
+        // Otherwise construct a new segment
         this.segmentTitle.innerHTML = seg.title;
         var str : string = "";
 
-
-        if( seg.binding) {
-            for( var i=0; i < seg.binding.length; ++i) {
-                var html = seg.binding[i].getHTML();
-                if( seg.binding[i].binding) {
-                    if( seg.binding[i] instanceof CellBinding)
-                        str += '<td class="dbnd'+i+'">' + html + '</td>';
-                    else 
-                        str += '<span class="dbnd'+i+'">' + html + '</span>';
-                }
-                else str += html;
+        if( seg.uiComponents) {
+            // Build the HTML
+            for( var i=0; i<seg.uiComponents.length; ++i) {
+                str += seg.uiComponents[i].buildUI(seg, this.data);
             }
             $(this.segmentContent).get(0).innerHTML = str;
-            for( var i=0; i < seg.binding.length; ++i) {
-                if( seg.binding[i].binding) {
-                    {
-                        // Create a strictly-scoped copy of i so that bindingClicked is bound
-                        //  to a different one each time, instead of being bound to the itterating
-                        //  i which will always be seg.binding.length by the time the binding
-                        //  is ever called
-                        let ind = i;
-
-                        var ele = $(".dbnd"+ind);
-                        ele.click( ((evt : JQueryEventObject) : any => {
-                            this.bindingClicked(ind);
-                        }).bind(this));
-                        ele.addClass("sfInt");
-                    }
-                }
+            // Link the Event watchers
+            for( let i=0; i<seg.links.length; ++i) {
+                var ele = $(".db_"+i);
+                ele.click( ((evt: JQueryEventObject): any => {
+                    this.bindingClicked(i);
+                }).bind(this));
+                ele.addClass("sfInt");
             }
         }
         else $(this.segmentContent).get(0).innerHTML = str;
@@ -135,12 +123,15 @@ export class UIManager {
     }
 
     private bindingClicked( index : number) {
-        if( !this.boundSegment || index < 0 || !this.boundSegment.binding 
-            || this.boundSegment.binding.length <= index) 
+        if( !this.boundSegment || index < 0 || !this.boundSegment.links 
+            || this.boundSegment.links.length <= index) 
             return;
 
         //
-        var bound = this.boundSegment.binding[index].binding;
+        var bound : Bound = {
+            start : this.boundSegment.links[index].getStartByte(),
+            len : this.boundSegment.links[index].getLength()
+        };
         if( this.hexComponent) this.hexComponent.setHighlighted(bound );
     }
 
@@ -148,9 +139,9 @@ export class UIManager {
         if( !selected) return;
 
         var seg = this.boundSegment;
-        if( seg && seg.binding) {
-            for( var i=0; i < seg.binding.length; ++i) {
-                var b1 = seg.binding[i].binding;
+        if( seg && seg.links) {
+            for( var i=0; i < seg.links.length; ++i) {
+                var b1 = seg.links[i].getBound();
                 if( !b1) continue;
 
                 var sel = false;

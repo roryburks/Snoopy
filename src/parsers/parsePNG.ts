@@ -1,28 +1,32 @@
 import {BinaryReader} from "../binaryReader";
-import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding_, CellBinding, SegmentNode}
+import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding_, 
+    CellBinding, SegmentNode, UIComponent, UIComponents, DataLink}
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor,Uint8ToString} from "../util";
+import {BinaryReaderLinker, BinLinks} from "./binReaderLinker";
 
 export class PNGParser extends Parser {
     parsed : ParseStructure;
     error : string = "";
     imgNode : SegmentNode;
+    lread : BinaryReaderLinker;
 
     parse() : ParseStructure {
         this.parsed = new ParseStructure();
+        this.lread = new BinaryReaderLinker( this.data);
 
         if( !this.parseHeader()) return null;
-        while( !this.reader.eof()) this.parseChunk();
+        while( !this.lread.eof()) this.parseChunk();
 
-        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.reader.buffer)) + '" />';
+        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.data)) + '" />';
         return this.parsed;
     }
     getError() : string{
         return this.error;
     }
     parseHeader() : boolean {
-        var sign = this.reader.readBytes(8);
+        var sign = this.lread.readBytes(8);
         
         if( !sign ||  sign[0] != 137 || sign[1] != 80 || sign[2] != 78 || sign[3] != 71 ||
             sign[4] != 13 || sign[5]!=10 || sign[6]!=26 || sign[7] != 10) 
@@ -34,26 +38,27 @@ export class PNGParser extends Parser {
             start : 0,
             length : 8,
             color : ParseColors.header,
-            binding : [],
+            uiComponents : [],
+            links : [],
             title : "PNG Signature"
         });
         return true;
     }
     parseChunk() : boolean {
-        var start = this.reader.getSeek();
-        var len = this.reader.readUInt();
-        var type = this.reader.readUTF8StrLen(4);
+        var start = this.lread.getSeek();
+        var len = this.lread.readUInt();
+        var type = this.lread.readUTF8StrLen(4);
         var data : SegmentData;
         switch( type) {
-        case "IHDR": data = new IHDRData(this.reader, start, len + 12);break;
-        case "sRGB":data = new sRGBData( this.reader, start, len + 12);break;
-        case "gAMA":data = new gAMAData( this.reader, start, len+12);break;
-        case "pHYs":data = new pHYsData( this.reader, start, len + 12);break;
-        case "PLTE": data = new PLTEData( this.reader, start, len+12);break;
-        case "IDAT": data = new ImageData( this.reader, start, len+12);break;
-        case "cHRM": data = new cHRMData( this.reader, start, len+12); break;
+        case "IHDR": data = new IHDRData(this.lread, start, len + 12);break;
+        case "sRGB":data = new sRGBData( this.lread, start, len + 12);break;
+        case "gAMA":data = new gAMAData( this.lread, start, len+12);break;
+        case "pHYs":data = new pHYsData( this.lread, start, len + 12);break;
+        case "PLTE": data = new PLTEData( this.lread, start, len+12);break;
+        case "IDAT": data = new ImageData( this.lread, start, len+12);break;
+        case "cHRM": data = new cHRMData( this.lread, start, len+12); break;
         default:
-            data = new UnknownSegment(this.reader, start, len + 12, type);
+            data = new UnknownSegment(this.lread, start, len + 12, type);
         }
 
         if( type == "IDAT"){
@@ -63,11 +68,9 @@ export class PNGParser extends Parser {
         else
             this.parsed.segmentTree.getRoot().addSegment( data.constructSegment());
 
-        this.reader.setSeek( start + 8 + len);
+        this.lread.setSeek( start + 8 + len);
 
-        var crc = this.reader.readUInt();
-
-
+        var crc = this.lread.readUInt();
 
         return true;
     }
@@ -91,8 +94,8 @@ function bindingsForChunk( chunk : string, start: number, len : number, bindings
 abstract class SegmentData {
     start : number;
     length : number;
-    reader : BinaryReader;
-    constructor( reader : BinaryReader, start:number, len:number) {
+    reader : BinaryReaderLinker;
+    constructor( reader : BinaryReaderLinker, start:number, len:number) {
         this.start = start;
         this.reader = reader;
         this.length = len;
@@ -102,7 +105,7 @@ abstract class SegmentData {
 
 class UnknownSegment extends SegmentData {
     type : string;
-    constructor( reader : BinaryReader, start:number, len:number, type : string) {
+    constructor( reader : BinaryReaderLinker, start:number, len:number, type : string) {
         super( reader, start, len);
         this.type = type;
     }
@@ -111,14 +114,16 @@ class UnknownSegment extends SegmentData {
             start : this.start,
             length : this.length,
             color : "#FFFFFF",
-            binding : bindingsForChunk(this.type, this.start, this.length, []),
+            uiComponents : [],
+            links : [],
+//            binding : bindingsForChunk(this.type, this.start, this.length, []),
             title : this.type + " Chunk"
         };
     }
 }
 
 class ImageData extends SegmentData {
-    constructor( reader : BinaryReader, start:number, len:number) {
+    constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
     }
     constructSegment() : Segment {
@@ -126,7 +131,9 @@ class ImageData extends SegmentData {
             start : this.start,
             length : this.length,
             color : ParseColors.cyclingColor(ParseColors._data),
-            binding : bindingsForChunk("IDAT", this.start, this.length, []),
+            uiComponents : [],
+            links : [],
+//            binding : bindingsForChunk("IDAT", this.start, this.length, []),
             title : "Image Data Stream"
         };
     }
@@ -135,12 +142,12 @@ class ImageData extends SegmentData {
 class IHDRData extends SegmentData {
     width : number;
     height : number;
-    bitDepth : number;
-    colorType : number;
-    compressionMethod: number;
-    filterMethod : number;
-    interlaceMethod : number;
-    constructor( reader : BinaryReader, start:number, len:number) {
+    bitDepth : BinLinks.ByteLink;
+    colorType : BinLinks.ByteLink;
+    compressionMethod: BinLinks.ByteLink;
+    filterMethod : BinLinks.ByteLink;
+    interlaceMethod : BinLinks.ByteLink;
+    constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
         this.width = reader.readUInt();
@@ -153,7 +160,7 @@ class IHDRData extends SegmentData {
 
     }
     getColorTypeName() : string {
-        switch( this.colorType) {
+        switch( this.colorType.get(this.reader.buffer)) {
             case 0: return "Greyscale";
             case 2: return "Truecolour";
             case 3: return "Indexed-colour";
@@ -169,8 +176,18 @@ class IHDRData extends SegmentData {
         seg.title = "IHDR Chunk (Image Header)";
 
         var bindings : Binding[] = [];
+        var uiComponents : UIComponent[] = [];
+        var links : DataLink[] = [];
 
-        var str : string;
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Image Dimensions: %d<br />", 
+            links.push( this.bitDepth)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Image Dimensions: %d", 
+            links.push( this.bitDepth)-1));
+//        var links : DataL
+
+/*        var str : string;
         bindings.push( new NilBinding("Image Dimensions: "));
         bindings.push( new DataBinding_(""+this.width, this.start + 8, 4));
         bindings.push( new NilBinding("x"));
@@ -189,20 +206,27 @@ class IHDRData extends SegmentData {
         if( this.interlaceMethod == 0) str = "No Interlacing";
         else if( this.interlaceMethod == 1) str = "Adam7 Interlacing";
         else str = "Nonstandard Interlacing Method";
-        bindings.push( new DataBinding_(str, this.start + 20, 1));
+        bindings.push( new DataBinding_(str, this.start + 20, 1));*/
 
-        seg.binding = bindingsForChunk("IHDR", this.start, this.length,  bindings);
+//        seg.binding = bindingsForChunk("IHDR", this.start, this.length,  bindings);
 
-        return seg;
+        return {
+            start: this.start,
+            length: this.length,
+            color: randcolor(),
+            title: "IHDR Chunk (Image Header)",
+            links : links,
+            uiComponents: uiComponents
+        };
     }
 }
 
 class sRGBData extends SegmentData {
     intent : number;
-    constructor( reader : BinaryReader, start:number, len:number) {
+    constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
-        this.intent = this.reader.readByte();
+        this.intent = this.reader.readByte().get(reader.buffer);
     }
     constructSegment() : Segment {
         var bindings : Binding[] = [];
@@ -223,7 +247,9 @@ class sRGBData extends SegmentData {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            binding : bindingsForChunk("sRGB", this.start, this.length, bindings),
+            uiComponents : [],
+            links : [],
+//            binding : bindingsForChunk("sRGB", this.start, this.length, bindings),
             title : "sRGB Chunk"
         };
     }
@@ -232,7 +258,7 @@ class sRGBData extends SegmentData {
 
 class gAMAData extends SegmentData {
     gamma : number;
-    constructor( reader : BinaryReader, start:number, len:number) {
+    constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
         this.gamma = reader.readUInt() / 1000000;
@@ -246,7 +272,9 @@ class gAMAData extends SegmentData {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            binding : bindingsForChunk("gAMA", this.start, this.length, bindings),
+            uiComponents : [],
+            links : [],
+//            binding : bindingsForChunk("gAMA", this.start, this.length, bindings),
             title : "gAMA Chunk"
         };
     }
@@ -256,12 +284,12 @@ class pHYsData extends SegmentData {
     pwidth : number;
     pheight : number;
     type : number;
-    constructor( reader : BinaryReader, start:number, len:number) {
+    constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
         this.pwidth = reader.readUInt();
         this.pheight = reader.readUInt();
-        this.type = reader.readByte();
+        this.type = reader.readByte().get(reader.buffer);
     }
     constructSegment() : Segment {
         var bindings : Binding[] = [];
@@ -278,7 +306,9 @@ class pHYsData extends SegmentData {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            binding : bindingsForChunk("pHYs", this.start, this.length, bindings),
+            uiComponents : [],
+            links : [],
+//            binding : bindingsForChunk("pHYs", this.start, this.length, bindings),
             title : "pHYs Chunk"
         };
     }
@@ -293,7 +323,7 @@ class cHRMData extends SegmentData {
     greeny : number;
     bluex : number;
     bluey : number;
-    constructor( reader : BinaryReader, start:number, len:number) {
+    constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
         this.whitex = reader.readUInt() / 100000; //8
@@ -325,13 +355,15 @@ class cHRMData extends SegmentData {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            binding : bindingsForChunk("cHRM", this.start, this.length, bindings),
+            uiComponents : [],
+            links : [],
+//            binding : bindingsForChunk("cHRM", this.start, this.length, bindings),
             title : "cHRM Chunk"
         };
     }
 }
 class COPYTHIS extends SegmentData {
-    constructor( reader : BinaryReader, start:number, len:number) {
+    constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
     }
 
@@ -342,7 +374,9 @@ class COPYTHIS extends SegmentData {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            binding : bindingsForChunk("cHRM", this.start, this.length, bindings),
+            uiComponents : [],
+            links : [],
+//            binding : bindingsForChunk("cHRM", this.start, this.length, bindings),
             title : "cHRM Chunk"
         };
     }
@@ -351,7 +385,7 @@ class COPYTHIS extends SegmentData {
 class PLTEData extends SegmentData {
     colors: Uint32Array;
     size : number;
-    constructor( reader : BinaryReader, start:number, len:number) {
+    constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
 
         if( (len - 12) % 3) {
@@ -361,7 +395,7 @@ class PLTEData extends SegmentData {
         this.colors = new Uint32Array( this.size);
 
         for( var i=0; i < this.size; ++i) {
-            this.colors[i] = reader.readRGB();
+            this.colors[i] = reader.readRGB().get(reader.buffer);
         }
     }
     constructSegment() : Segment {
@@ -388,7 +422,9 @@ class PLTEData extends SegmentData {
             start : this.start,
             length : this.length,
             color : ParseColors.palette,
-            binding : bindingsForChunk("PLTE", this.start, this.length, bindings),
+            uiComponents : [],
+            links : [],
+//            binding : bindingsForChunk("PLTE", this.start, this.length, bindings),
             title : "Palette Chunk"
         };
     }

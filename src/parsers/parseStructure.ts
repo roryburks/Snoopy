@@ -1,19 +1,20 @@
 import {BinaryReader} from "../binaryReader";
 import {Queue} from "../util";
 
-/**
- * 
- */
+/** A Bound is an integer Range representing a Data Chunk */
 export class Bound {
     start : number;
     len : number;
 }
 
+
 export abstract class Parser {
     reader : BinaryReader;
+    data : Uint8Array;
 
     constructor( buffer : Uint8Array) {
         this.reader = new BinaryReader(buffer);
+        this.data = buffer;
     }
     abstract parse() : ParseStructure;
 }
@@ -22,6 +23,7 @@ export class ParseStructure {
     visualHTML : string;
 }
 
+/** The SegmentTree is a Simple Tree Structure storing all the Segments. */
 export class SegmentTree {
     private root : SegmentNode = new SegmentNode(null, "Root");
 
@@ -72,116 +74,86 @@ export class SegmentNode {
     }
 }
 
-module DataLinks {
-    export class Data {
-        private dat:  {[key: string]: any};
-        getData( id : string) : any {
 
-        }
-    }
-    class Datum {
-        dat : any;
-        type: string;
-        s() {
-        }
-    }
-    export interface DataLink {
-        getValue(d: Data) : any;
-        changeValue( d:Data, val : any) : void;
-        getStartByte() : number;
-        getStartBitmask() : number;
-        getEndByte() : number;
-        getEndBitmask() : number;
-        isDynamic() : boolean;
-    }
-    export interface DataUIComponent {
-        buildUIComponent() : JQuery;
-    }
-
-
-    /* ReaderBinder is a class that constructs DataLinks as it reads it from the reader */
-    export class ReaderBinder {
-        private reader : BinaryReader;
-        links : DataLink[] = [];
-        constructor( reader : BinaryReader) {
-            this.reader = reader;
-        }
-        readByte(id : string) : number {
-            this.links.push(new BasicLink<number>(id, this.reader.getSeek(), 1));
-            var val = this.reader.readByte();
-            return val;
-        }
-
-    }
-
-    export class BasicLink<T> implements DataLink {
-        id : string;
-        start : number;
-        length: number;
-        constructor( id : string, start: number, length: number) {
-            this.id = id;
-            this.start = start;
-            this.length = length;
-        }
-        getValue(d:Data) : T {
-            return d.getData(this.id) as T;
-        }
-        changeValue( d:Data, val : T) { throw "Unsupported";}
-        getStartByte() : number { return this.start;}
-        getStartBitmask() : number { return 0xFF;}
-        getEndByte() : number {return this.start+this.length;}
-        getEndBitmask() : number {return 0xFF;}
-        isDynamic() : boolean {return false;}
-    }
-
-    interface _Bind { getHTML() : string;}
-    class BasicBind implements _Bind {
-        html : string;
-        constructor( html : string) { this.html = html;}
-        getHTML() : string {
-            return this.html;
-        }
-    }
-    class LinkedBind implements _Bind {
-        html : string;
-        link : DataLink;
-        constructor( html : string, link : DataLink) { this.html = html; this.link = link;}
-        getHTML() : string {
-            return this.html;
-        }
-    }
-    class CellBind extends LinkedBind{}
-    export class ManualUIComponent implements DataUIComponent {
-        binds : _Bind[];
-
-        addBasicBinding( html : string) {
-            this.binds.push( new BasicBind(html));
-        }
-        addBinding( html : string, link : DataLink) {
-            this.binds.push( new LinkedBind(html, link));
-        }
-        addCellBinding( html : string, link : DataLink) {
-            this.binds.push( new CellBind(html, link));
-        }
-
-        buildUIComponent() : JQuery {
-            var html = "";
-            for( var i=0; i< this.binds.length; ++i) {
-
-            }
-
-            var ele = document.createElement("div");
-            ele.innerHTML = "";
-            return $(ele);
+export interface UIComponent {
+    buildUI(context : Segment, data: Uint8Array) : string;
+}
+export abstract class DataLink {
+    abstract getValue(data : Uint8Array)  : string;
+    abstract getStartByte() : number;
+    abstract getStartBitmask() : number;
+    abstract getLength() : number;
+    abstract getEndBitmask() : number;
+    getBound() : Bound {
+        return {
+            start: this.getStartByte(),
+            len: this.getLength()
         }
     }
 }
+export interface DynamicDataLink extends DataLink {
+    changeValue( data : Uint8Array, val : string) : void;
+}
+export module LinkTypes {
+    export class BoolBitLink extends DataLink {
+        offset: number;
+        seek : number;
+        constructor( reader : BinaryReader, offset : number) {
+            super();
+            this.seek = reader.getSeek();
+            this.offset = offset;
+        }
+        getValue(data : Uint8Array) : string { 
+            return "" + (((data[this.seek] >>> this.offset)&1) != 0);
+        }
+        getStartByte() : number {return this.seek;}
+        getStartBitmask() : number {return (1 << this.offset);}
+        getLength() : number {return 1;}
+        getEndBitmask() : number  {return (1 << this.offset);}
+    }
+    export class PartialByteLink extends DataLink {
+        offset: number;
+        size : number;
+        seek : number;
+        
+        getValue(data : Uint8Array)  : string {
+            return "" + ((data[this.seek] >>> this.offset)&((1 << this.size)-1));
+        }
+        getStartByte() : number {return this.seek;}
+        getStartBitmask() : number {return ((1 << this.size) - 1) << this.offset;}
+        getLength() : number {return 1;}
+        getEndBitmask() : number {return ((1 << this.size) - 1) << this.offset;}
+    }
+}
+export module UIComponents {
+    export class SimpleUIC implements UIComponent {
+        comment : string;
+        links : number[];
+        constructor( comment : string, ...links: number[]) {
+            this.comment = comment;
+            this.links = links;
+        }
+        buildUI(context : Segment, data: Uint8Array) : string{
+            var str : string = this.comment;
+
+            if( !this.links) return this.comment;
+
+            for( var i=0; i < this.links.length; ++i) {
+                this.comment = this.comment.replace( '%d',
+                    '<span class="db_' + this.links[i] + '">'+context.links[this.links[i]].getValue(data)+'</span>');
+            }
+            return this.comment;
+        }
+    }
+}
+
 export class Segment {
     start : number;
     length : number;
     color : string;
     title : string;
-    binding : Binding[];
+    uiComponents : UIComponent[];
+    links : DataLink[];
 }
 export interface Binding {
     binding : Bound;
