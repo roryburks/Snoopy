@@ -386,22 +386,26 @@ class COPYTHIS extends SegmentData {
     }
 
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
+        var uiComponents : UIComponent[] = [];
+        var links : DataLink[] = [];
+
+        // Code goes here
+        
+        appendChunkHeaders( this.start, this.length, links, uiComponents);
 
         return {
             start : this.start,
             length : this.length,
             color : randcolor(),
-            uiComponents : [],
-            links : [],
-//            binding : bindingsForChunk("cHRM", this.start, this.length, bindings),
-            title : "cHRM Chunk"
+            uiComponents : uiComponents,
+            links : links,
+            title : "Title"
         };
     }
 }
 
 class PLTEData extends SegmentData {
-    colors: Uint32Array;
+    colors: BinLinks.RGBLink[] = [];
     size : number;
     constructor( reader : BinaryReaderLinker, start:number, len:number) {
         super( reader, start, len);
@@ -410,39 +414,42 @@ class PLTEData extends SegmentData {
             throw "Bad Palette Segment";
         }
         this.size = (len - 12) / 3;
-        this.colors = new Uint32Array( this.size);
 
         for( var i=0; i < this.size; ++i) {
-            this.colors[i] = reader.readRGB().get(reader.buffer);
+            this.colors[i] = reader.readRGB();
         }
     }
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
-        
-        bindings.push( new NilBinding("Color Table: "));
-        var n = Math.ceil( Math.sqrt(this.size));
+        var uiComponents : UIComponent[] = [];
+        var links : DataLink[] = [];
 
-        bindings.push( new NilBinding('<table class="colorTable">'));
-        for( var row=0; row < n; ++row) {
-            bindings.push( new NilBinding('<tr>'));
-            bindings.push( new NilBinding('<td>'+row*n+'-'+(row*n+n-1)+'</td>'));
-            for( var col=0; col < n; ++col) {
+        // Code goes here
+        var comp = new UIComponents.ComplexUIC();
+        comp.addPiece('Color Table: <table class="colorTable">');
+
+        var n = Math.ceil( Math.sqrt(this.size));
+        for( var row=0; row<n; ++row) {
+            comp.addPiece('<tr><td>'+row*n+'-'+(row*n+n-1)+'</td>');
+            for( var col=0; col<n; ++col) {
                 var index = row*n + col;
-                if( index >= this.size)break;
-                var color = ParseColors.rgbToString(this.colors[index]);
-                bindings.push( new CellBinding('<div class="colorBox" style="background-color:'+color+'"></div>', this.start + index*3, 3));
+                if( index >= this.size) break;
+                comp.addPiece('<td class="%c"><div class="colorBox" style="background-color:%d"></div></td>',
+                    links.push( this.colors[index])-1);
             }
-            bindings.push( new NilBinding('</tr>'));
+            comp.addPiece('</tr>');
         }
-        bindings.push( new NilBinding('</table>'));
+        comp.addPiece('</table>');
+
+        uiComponents.push( comp);
+        
+        appendChunkHeaders( this.start, this.length, links, uiComponents);
 
         return {
             start : this.start,
             length : this.length,
             color : ParseColors.palette,
-            uiComponents : [],
-            links : [],
-//            binding : bindingsForChunk("PLTE", this.start, this.length, bindings),
+            uiComponents : uiComponents,
+            links : links,
             title : "Palette Chunk"
         };
     }

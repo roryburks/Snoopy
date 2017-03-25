@@ -1,4 +1,5 @@
 import {DataLink} from "./parseStructure";
+import {ParseColors} from "./colors";
 
 /**
  * This contains all the basic Data Links for converting common types
@@ -50,6 +51,9 @@ export module BinLinks {
         }
     }
     export class RGBLink extends NumberLink {
+        getValue( data : Uint8Array) : string {
+            return ParseColors.rgbToString( this.get(data));
+        }
         get( data : Uint8Array) : number {
             return (data[this.seek] << 16 |
                 data[this.seek+1] << 8 |
