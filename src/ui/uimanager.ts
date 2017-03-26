@@ -151,10 +151,10 @@ export class UIManager {
                         continue;
                         
                     sel = true;
-                    $(this.segmentContent).find(".dbnd"+i).addClass("sfSel");
+                    $(this.segmentContent).find(".db_"+i).addClass("sfSel");
                 }
                 if( !sel) {
-                    $(this.segmentContent).find(".dbnd"+i).removeClass("sfSel");
+                    $(this.segmentContent).find(".db_"+i).removeClass("sfSel");
                 }
             }
         }

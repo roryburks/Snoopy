@@ -2,12 +2,15 @@ import {BinaryReader} from "../binaryReader";
 import {hexStr} from "../main";
 import {hexByteStr, Uint8ToString} from "../util";
 import {ParseStructure, Parser, Segment, SegmentNode} from "../parsers/parseStructure";
-import {Binding, DataBinding_, NilBinding, CellBinding} from "../parsers/parseStructure";
+import {Binding, DataBinding_, NilBinding, CellBinding,
+    UIComponents, UIComponent, DataLink} from "../parsers/parseStructure";
 import {ParseColors} from "./colors";
+import {BinaryReaderLinker, BinLinks, SpecialLinks} from "./binReaderLinker";
 
 class JPGParser extends Parser{
     error : string = "";
     parsed : ParseStructure;
+    lread : BinaryReaderLinker;
 
     sos : SOSData;
 
@@ -24,19 +27,22 @@ class JPGParser extends Parser{
     }
     parse() : ParseStructure {
         this.parsed = new ParseStructure();
+        this.lread = new BinaryReaderLinker(this.data);
 
         if( !this.parseHeader()) return null;
 
         while( this.parseSegment()) {}
 
-        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.reader.buffer)) + '" />';
+        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.data)) + '" />';
         return this.parsed;
     }
     private parseHeader() : boolean {
-        var reader = this.reader;
+        var reader = this.lread;
 
         // SOI
-        if( reader.readByte() != 0xFF || reader.readByte() != 0xD8) {
+        var a = reader.readByte();
+        var b = reader.readByte();
+        if( a.get(this.data) != 0xFF || b.get(this.data) != 0xD8) {
             this.error = "Not a JPEG file (bad SOI marker)."
             return false;
         }
@@ -45,25 +51,23 @@ class JPGParser extends Parser{
             length : 2,
             color : "#a0a2de",
             title : "Start of Image",
-            uiComponents : [],
-            links : [],
-//            binding : [new DataBinding_("0xFF", 0, 1), new NilBinding(" "), new DataBinding_("0xD8",1,1)]
+            uiComponents : [new UIComponents.SimpleUIC("%d %d", 0, 1)],
+            links : [a, b]
         });
 
         return true;
     }
     private parseSegment() : boolean {
-        var reader = this.reader;
-        if( reader.readByte() != 0xFF) {
+        var reader = this.lread;
+        if( reader.readByte().get(this.data) != 0xFF) {
             this.error = "Unexpected byte where Marker should be (expected 0xFF)."
             return false;
         }
 
-        var marker = reader.readByte();
+        var marker = reader.readByte().get(this.data);
 
-        var reader = this.reader;
         var start = reader.getSeek() - 2;
-        var len = reader.readUShort();
+        var len = reader.readUShort().get(this.data);
         switch( marker) {
         case 0xE0:
             this.parseAPP0(start, len+2);
@@ -85,8 +89,8 @@ class JPGParser extends Parser{
             // Define Huffman Table
             this.huffRoot = this.huffRoot || this.parsed.segmentTree.getRoot().addNullSegment("Huffman Tables");
             this.huffRoot.addSegment( markerSegment(0xC4, start, len, "Huffman Table Marker"));
-            while( (start + len + 2)-this.reader.getSeek() > 0) {
-                var huffdata = new HuffmanData(reader,this.reader.getSeek(),-1);
+            while( (start + len + 2)-this.lread.getSeek() > 0) {
+                var huffdata = new HuffmanData(reader,this.lread.getSeek(),-1);
                 this.huffRoot.addSegment(huffdata.constructSegment());
             }
             break;
@@ -94,8 +98,8 @@ class JPGParser extends Parser{
             this.sos = new SOSData( reader, start, len);
             this.parsed.segmentTree.getRoot().addSegment(this.sos.constructSegment());
             this.parsed.segmentTree.getRoot().addSegment({
-                start: this.reader.getSeek(),
-                length: this.reader.getLength() - this.reader.getSeek(),
+                start: this.lread.getSeek(),
+                length: this.lread.getLength() - this.lread.getSeek(),
                 color: ParseColors.data,
                 uiComponents : [],
                 links : [],
@@ -106,8 +110,8 @@ class JPGParser extends Parser{
             // Define Quantization Table
             this.quantRoot = this.quantRoot || this.parsed.segmentTree.getRoot().addNullSegment("Quantization Tables");
             this.quantRoot.addSegment( markerSegment(0xDB, start, len, "Quantization Table Marker"));
-            while( (start + len + 2)-this.reader.getSeek() > 0) {
-                var qtdata = new QuantTableData(reader,this.reader.getSeek(),-1);
+            while( (start + len + 2)-this.lread.getSeek() > 0) {
+                var qtdata = new QuantTableData(reader,this.lread.getSeek(),-1);
                 this.quantRoot.addSegment(qtdata.constructSegment());
             }
             break;
@@ -154,9 +158,9 @@ class JPGParser extends Parser{
     }
 
     private parseAPP0( start : number, length : number) : boolean {
-        var reader = this.reader;
+        var reader = this.lread;
 
-        var identifier = reader.readUTF8Str();
+        var identifier = reader.readUTF8Str().get(this.data);
 
         if( identifier == "JFIF") {
             var data = new JFIFData(reader,start,length);
@@ -173,8 +177,8 @@ class JPGParser extends Parser{
     }
     
     private parseAPP1(start: number, length: number) : boolean {
-        var reader = this.reader;
-        var identifier = reader.readUTF8Str();
+        var reader = this.lread;
+        var identifier = reader.readUTF8Str().get(this.data);
 
         if( identifier == "Exif") {
             var data = new EXIFData(reader,start,length);
@@ -210,8 +214,8 @@ function markerSegment(marker : number, start: number, len: number, descriptor:s
 abstract class SegmentBuilder {
     start : number;
     length : number;
-    reader : BinaryReader;
-    constructor(reader : BinaryReader, start:number, len:number) {
+    reader : BinaryReaderLinker;
+    constructor(reader : BinaryReaderLinker, start:number, len:number) {
         this.reader = reader;
         this.start = start;
         this.length = len;
@@ -222,7 +226,7 @@ abstract class SegmentBuilder {
 class UnknownAPPNData extends SegmentBuilder {
     n : number;
     
-    constructor(reader : BinaryReader, start:number, len:number) {
+    constructor(reader : BinaryReaderLinker, start:number, len:number) {
         super(reader, start, len);
     }
 
@@ -238,73 +242,70 @@ class UnknownAPPNData extends SegmentBuilder {
 }
 
 class JFIFData extends SegmentBuilder {
-    versionMajor : number;
-    versionMinor : number;
-    pixelDensityUnits : number;
-    xDensity : number;
-    yDensity : number;
-    xThumbnail : number;
-    yThumbnail : number;
-    thumbnailData : Uint8Array;
+    versionMajor : DataLink;
+    versionMinor : DataLink;
+    pixelDensityUnits : DataLink;
+    xDensity : DataLink;
+    yDensity : DataLink;
+    xThumbnail : BinLinks.ByteLink;
+    yThumbnail : BinLinks.ByteLink;
+    thumbnailData : DataLink;
 
     
-    constructor(reader : BinaryReader, start:number, len:number) {
+    constructor(reader : BinaryReaderLinker, start:number, len:number) {
         super(reader, start, len);
         
         this.versionMajor = reader.readByte();
         this.versionMinor = reader.readByte();
-        this.pixelDensityUnits = reader.readByte();
+        this.pixelDensityUnits = new SpecialLinks.EnumLink(
+            reader.readByte(),
+            {
+                "0":"Pixel Aspect Ration",
+                "1":"Pixels per Inch",
+                "2":"Pixels per Centimeter"
+            },"Unknown Density Units");
         this.xDensity = reader.readUShort();
         this.yDensity = reader.readUShort();
         this.xThumbnail = reader.readByte();
         this.yThumbnail = reader.readByte();
-        if( this.xThumbnail * this.yThumbnail > 0) {
-            this.thumbnailData = reader.readBytes(this.xThumbnail*this.yThumbnail*3);
+
+        var tx = this.xThumbnail.get( this.reader.buffer);
+        var ty = this.yThumbnail.get( this.reader.buffer);
+        if( tx * ty > 0) {
+            this.thumbnailData = reader.readBytes(tx*ty*3);
         }
     }
 
     constructSegment() : Segment {
 
-        var seg = new Segment();
-        var str; 
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
 
-        seg.start = this.start;
-        seg.length = this.length;
-        seg.title = "JFIF Application Data";
-        seg.color = "#bfc67f";
 
-        var bindings : Binding[] = [];
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Version: %d.%d<br />", 
+            links.push(this.versionMajor)-1, links.push(this.versionMinor)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Pixel Density: %d x %d  %d<br />", 
+            links.push(this.xDensity)-1, links.push(this.yDensity)-1,links.push(this.pixelDensityUnits)-1));
 
-        bindings.push( new NilBinding("Version: "));
-        bindings.push( new DataBinding_( ""+this.versionMajor, seg.start + 9, 1));
-        bindings.push( new NilBinding("."));
-        bindings.push( new DataBinding_( ""+this.versionMinor, seg.start + 10, 1));
-        bindings.push( new NilBinding("<br />Pixel Density Units: "));
-        switch( this.pixelDensityUnits) {
-        case 0: str = "Pixel Aspect Ratio (0x00)"; break;
-        case 1: str = "Pixels Per Inch (0x01)"; break;
-        case 2: str = "Pixels per centimeter (0x02)"; break;
-        default: str = "Unknown Density Units (0x"+hexStr(this.pixelDensityUnits)+")"; break;
-        }
-        bindings.push( new DataBinding_(  str, seg.start + 11, 1));
-        bindings.push( new NilBinding(": "));
-        bindings.push( new DataBinding_(  ""+this.xDensity, seg.start + 12, 2));
-        bindings.push( new NilBinding("x"));
-        bindings.push( new DataBinding_(  ""+this.yDensity, seg.start + 14, 2));
-        bindings.push( new NilBinding("<br />Thumbnail Size:"));
-        bindings.push( new DataBinding_(  ""+this.xThumbnail, seg.start + 16, 1));
-        bindings.push( new NilBinding("x"));
-        bindings.push( new DataBinding_(  ""+this.yThumbnail, seg.start + 17, 1));
-        bindings.push( new NilBinding("<br />"));
-        if( this.xThumbnail * this.yThumbnail > 0) {
-            bindings.push( new NilBinding("Thumbnail:"));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Thumbnail Size: %d x %d<br />", 
+            links.push(this.xThumbnail)-1, links.push(this.yThumbnail)-1));        
+
+        var tx = this.xThumbnail.get( this.reader.buffer);
+        var ty = this.yThumbnail.get( this.reader.buffer);
+        if( tx * ty > 0) {
+            uiComponents.push( new UIComponents.SimpleUIC(
+                "Thumbnail: "));
         }
 
+        console.log( this.start + ":" + this.length);
 
 
         return {
-            uiComponents : [],
-            links : [],
+            uiComponents : uiComponents,
+            links : links,
             start: this.start,
             length: this.length,
             title: "JFIF Application Data",
@@ -315,7 +316,7 @@ class JFIFData extends SegmentBuilder {
 
 class EXIFData  extends SegmentBuilder{
     
-    constructor(reader : BinaryReader, start:number, len:number) {
+    constructor(reader : BinaryReaderLinker, start:number, len:number) {
         super(reader, start, len);
     }
 
@@ -332,123 +333,111 @@ class EXIFData  extends SegmentBuilder{
 }
 
 class QuantTableData extends SegmentBuilder {
-    highPrec : boolean;
-    dest : number;
-    table8 : Uint8Array;
-    table16 : Uint16Array;
+    highPrec : SpecialLinks.PartialByteLink;
+    dest : SpecialLinks.PartialByteLink;
+    table : BinLinks.PackedNumberLink;
 
-    constructor(reader : BinaryReader, start:number, len:number) {
+    constructor(reader : BinaryReaderLinker, start:number, len:number) {
         super(reader, start, len);
-
         
         var info = reader.readByte();
-        this.highPrec = (info >> 4) ? true : false;
-        this.dest = info & 0xF;
+        this.highPrec = new SpecialLinks.PartialByteLink( info, 4, 4);
+        this.dest = new SpecialLinks.PartialByteLink( info, 0, 4);
 
-        if( this.highPrec) {
-            this.table16 = new Uint16Array(64);
-            for( var i=0; i<64; ++i) {
-                this.table16[i] = reader.readUShort();
-            }
+        var seek = this.reader.getSeek()
+        var hp = this.highPrec.get(reader.buffer);
+        if( hp) {
+            this.table = new BinLinks.PackedNumberLink(seek, 64, 2, false);
             this.length = 2*64+1;
         }
         else {
-            this.table8 = new Uint8Array(64);
-            for( var i=0; i<64; ++i) {
-                this.table8[i] = reader.readByte();
-            }
+            this.table = new BinLinks.PackedNumberLink(seek, 64, 1, false);
             this.length = 64+1;
         }
+        reader.setSeek( seek + this.length-1);
     }
 
     constructSegment() : Segment {
-        var seg = new Segment();
-        seg.start = this.start;
-        seg.length = this.length;
-        seg.color = ParseColors.cyclingColor(0xb2748a);
-        seg.title = "Quantization Table Data";
-        
-        
-        var table, size;
-        if( this.table8) {
-            table = this.table8;
-            size = 1;
-        }
-        else {
-            table = this.table16;
-            size = 2;
-        }
-        var elements : Binding[] = new Array(64);
+        var hp = this.highPrec.get(this.reader.buffer);
+
+
+        var tLinks : DataLink[] = new Array(64);
 
         var i=0;
         var x=0, y=0;
-        this.ele( x, y, elements, table[i], i, size);
+        this.ele( x, y, tLinks, i);
         while( i < 64) {
             // Top/Right edge
             if( x < 7) {++x; ++i;}
             else {++y; ++i;}
-            this.ele( x, y, elements, table[i], i, size);
+            this.ele( x, y, tLinks, i);
 
             // Zig downleft
             while( x > 0 && y < 7) {
                 --x; ++y; ++i;
-                this.ele( x, y, elements, this.table8[i], i, 1);
+            this.ele( x, y, tLinks, i);
             }
             // Bottom/Left edge
             if( y == 7) {++x; ++i;}
             else{++y; ++i;}
-            this.ele( x, y, elements, table[i], i, size);
+            this.ele( x, y, tLinks, i);
 
             if( x == 7 && y == 7) break;
 
             // Zag upright
             while( x < 7 && y > 0) {
                 ++x; --y; ++i;
-                this.ele( x, y, elements, this.table8[i], i, 1);
+            this.ele( x, y, tLinks, i);
             }
         }
 
-        var bindings : Binding[] = [];
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
+        var comp = new UIComponents.ComplexUIC();
 
-        bindings.push( new DataBinding_((this.highPrec)?"16-bit Table":"8-bit Table"+" (High Nibble)", this.start,1));
-        bindings.push( new NilBinding('<br />Destination: '));
-        bindings.push( new DataBinding_(""+(this.dest) + " (Low Nibble)", this.start,1));
-        bindings.push(new NilBinding('<br />Table:<br />'));
-        bindings.push( new NilBinding('<div class="matrix"><span class="matrixLeft"></span><table class="matrixContent">'));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Table Bit Depth: %d   Destination: %d <br />Table:<br />",
+            links.push(this.highPrec)-1, links.push(this.dest)-1));
+            
+        comp.addPiece('<div class="matrix"><span class="matrixLeft"></span><table class="matrixContent">');
         for( var x=0; x<8; ++x) {
-            bindings.push(new NilBinding('<tr class="matrixRow">'));
+            comp.addPiece('<tr class="matrixRow">');
             for( var y=0; y<8; ++y) {
                 var index = x + y*8;
-                bindings.push( new NilBinding('<td class="matrixElement">'))
-                bindings.push( elements[index]);
-                bindings.push( new NilBinding('</td>'));
+                comp.addPiece('<td class="matrixElement"><span class="%c">%d</span></td>',
+                    links.push( tLinks[index])-1);
             }
-            bindings.push(new NilBinding('</tr>'));
+            comp.addPiece('</tr>');
         }
-        bindings.push( new NilBinding('</table><span class="matrixRight"></span></div>'));
+        comp.addPiece('</table><span class="matrixRight"></span></div>');
+        
+        uiComponents.push( comp);
 
-        seg.uiComponents = [];
-        seg.links = [];
-
-        return seg;
+        return {
+            start: this.start,
+            length: this.length,
+            color: ParseColors.cyclingColor(0xb2748a),
+            title: "Quantization Table Data",
+            uiComponents: uiComponents,
+            links: links
+        };
     }
-
-    private ele( x: number, y : number, elements : Binding[], entry : number, i : number, sizeof : number) {
-        elements[x*8+y] = 
-        new DataBinding_(""+entry, this.start + 1 + sizeof * i, sizeof);
+    private ele( x:number, y:number, links: DataLink[], index : number) {
+        links[x*8+y] = this.table.subLink(index);
     }
 }
 
 class SOFData extends SegmentBuilder {
-    precision : number;
-    width: number;
-    height : number;
-    numComponents: number;
-    cField : number[] = [];
-    cFactor : number[] = [];
-    cQTable : number[] = [];
+    precision : BinLinks.ByteLink;
+    width: BinLinks.ByteLink;
+    height : BinLinks.ByteLink;
+    numComponents: BinLinks.ByteLink;
+    cField : DataLink[] = [];
+    cFactorHor : SpecialLinks.PartialByteLink[] = [];
+    cFactorVert : SpecialLinks.PartialByteLink[] = [];
+    cQTable : BinLinks.ByteLink[] = [];
 
-    constructor(reader : BinaryReader, start:number, len:number) {
+    constructor(reader : BinaryReaderLinker, start:number, len:number) {
         super(reader, start, len);
 
         this.precision = reader.readByte();
@@ -456,101 +445,123 @@ class SOFData extends SegmentBuilder {
         this.height = reader.readUShort();
         this.numComponents = reader.readByte();
 
-        for( var i=0; i< this.numComponents; ++i) {
-            this.cField[i] = reader.readByte();
-            this.cFactor[i] = reader.readByte();
+        var n = this.numComponents.get(reader.buffer);
+        for( var i=0; i< n; ++i) {
+            this.cField[i] = new SpecialLinks.EnumLink(reader.readByte(),
+                {
+                    "1":"Y", 
+                    "2":"Cb",
+                    "3":"Cr",
+                    "4":"I",
+                    "5":"Q"
+                },"?");
+            var cFact = reader.readByte();
+            this.cFactorHor[i] = new SpecialLinks.PartialByteLink(cFact, 4, 4);
+            this.cFactorVert[i] = new SpecialLinks.PartialByteLink(cFact, 0, 4);
             this.cQTable[i] = reader.readByte();
         }
     }
     
     constructSegment() : Segment {
-        var start = this.start;
-        var seg = new Segment();
-        seg.color = "#814a8c";
-        seg.title = "Start of Frame 0";
-        seg.start = this.start;
-        seg.length = this.length;
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
 
-        var bindings : Binding[] = [];
+        uiComponents.push(new  UIComponents.SimpleUIC(
+            "%d-bit Precision <br />", links.push(this.precision)-1));
+        uiComponents.push(new  UIComponents.SimpleUIC(
+            "Image Size: %d x %d <br />", 
+            links.push(this.width)-1,links.push(this.height)-1));
+        uiComponents.push(new  UIComponents.SimpleUIC(
+            "Number of Components: %d<br />", links.push(this.numComponents)-1));
 
-        bindings.push( new DataBinding_(""+this.precision+"-bit Precision",start+4,1));
-        bindings.push( new NilBinding("<br />Image Size: "));
-        bindings.push( new DataBinding_(""+this.width, start+5, 2));
-        bindings.push( new NilBinding("x"));
-        bindings.push( new DataBinding_(""+this.height, start+7, 2));
-        bindings.push( new NilBinding("<br />Number of Components: "));
-        bindings.push( new DataBinding_(""+this.numComponents, start+9, 1));
-
-        for( var i=0; i<this.numComponents; ++i) {
-            bindings.push( new NilBinding("<br />Component " +i +": "));
-            var str = "?";
-            switch(this.cField[i]) {
-                case 1: str="Y";break;
-                case 2: str="Cb";break;
-                case 3: str="Cr";break;
-                case 4: str="I";break;
-                case 5: str="Q";break;
-            }
-            bindings.push( new DataBinding_(str, start+10 + i*3, 1));
-            bindings.push( new NilBinding(" sampling factors: "));
-            bindings.push( new DataBinding_(""+(this.cFactor[i]>>4), start+10 + i*3+1, 1));
-            bindings.push( new NilBinding("x"));
-            bindings.push( new DataBinding_(""+(this.cFactor[i]&0xF), start+10 + i*3+1, 1));
-            bindings.push( new NilBinding(" Quantization Table: "));
-            bindings.push( new DataBinding_(""+this.cQTable[i], start+10+i*3+2, 1));
+        var n = this.numComponents.get(this.reader.buffer);
+        for( var i=0; i<n; ++i) {
+            uiComponents.push( new UIComponents.SimpleUIC(
+                "Component "+i+": %d sampling factors: %d x %d Quantization Table: %d<br />",
+                links.push(this.cField[i])-1, links.push(this.cFactorHor[i])-1,
+                links.push(this.cFactorVert[i])-1, links.push(this.cQTable[i])-1));
         }
 
-
-        return seg;
+        return {
+            start: this.start,
+            length: this.length,
+            color: "#814a8c",
+            title: "Start of Frame 0",
+            links : links,
+            uiComponents : uiComponents
+        };
     }
 }
 
 class HuffmanData extends SegmentBuilder {
     y : boolean;
     dc : boolean;
-    id : number;
-    numPerRow : number[] = new Array(16);
-    table : number[][] = new Array(16);
-    codes : Uint16Array;
-    raw : Uint8Array;
+    id : BinLinks.NumberLink;
 
+    count : number;
+
+    numPerRowT :  BinLinks.PackedNumberLink;
+    rawT :  BinLinks.PackedNumberLink;
+
+    codes : Uint16Array;
     minCode = new Uint16Array(16);
     maxCode = new Uint16Array(16);
     valPtr = new Uint16Array(16);
     
-    constructor(reader : BinaryReader, start:number, len:number) {
+    constructor(reader : BinaryReaderLinker, start:number, len:number) {
         super(reader, start, len);
 
-        var byte = reader.readByte();
 
-        this.id = byte;
+        this.id = reader.readByte();
+        var byte = this.id.get(reader.buffer);
+
         this.y = (byte & 0x1) == 0;
         this.dc = (((byte >> 4)&0x1) == 0);
 
-        var count = 0;
+        this.count = 0;
+        this.numPerRowT = reader.readPacked(16, 1, false);
         for( var i=0; i<16; ++i) {
-            this.numPerRow[i] = reader.readByte();
-            count += this.numPerRow[i];
+            this.count += this.numPerRowT.get(reader.buffer, i);
         }
 
-        this.raw = reader.readBytes(count);
+        this.rawT = reader.readPacked( this.count, 1, false);
 
-        this.length = 17+count;
+        this.length = 17+this.count;
 
         this.constructHuffmanCodes();
     }
 
     constructSegment() : Segment {
-
-        var seg = new Segment();
-        seg.start = this.start;
-        seg.length = this.length;
-        seg.color = ParseColors.cyclingColor(0x9b4444);
-        seg.title = "Huffman Table";
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
+        var comp = new UIComponents.ComplexUIC();
 
         var bindings : Binding[] = [];
 
-        bindings.push( new NilBinding('Huffman Table Destination:'))
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Huffman Table Destination: %d <br />",
+            links.push(this.id)-1));
+
+        comp.addPiece('<table class="simpleTable"><tr><th style="font-size:10px">Bit<br />Length</th><th>Byte the code is mapped to (mouse over for the code)</th></tr>');
+        var index = 0;
+        for( var i=0; i<16; ++i) {
+            var n = this.numPerRowT.get(this.reader.buffer, i);
+            comp.addPiece('\<tr><td class="%c"><div class="htt">'+(i+1)+' <div class="ttt">File stores how many entries of length '+(i+1)+' that need to be mapped (%d).</span></div></td><td>',
+                links.push( this.numPerRowT.subLink(i))-1);
+
+            for( var j=0; j<n; ++j) {
+                var binstr = (this.codes[index]>>>0).toString(2);
+                while( binstr.length < (i+1)) binstr = "0"+binstr;
+
+                comp.addPiece( '<span class="%c"><div class="htt">%d<span class="ttt">'+binstr+'</span></div></span> ',
+                    links.push( this.rawT.subLink(index))-1);
+                index++;
+            }
+            comp.addPiece('</td></tr>');
+        }
+        comp.addPiece('</table');
+
+/*        bindings.push( new NilBinding('Huffman Table Destination:'))
         var str = "" + this.id + "(";
         str += (this.y) ? '<span class="htt">Y<span class="ttt">Luminosity</span></span>':'Color';
         str += " ";
@@ -581,20 +592,22 @@ class HuffmanData extends SegmentBuilder {
             }
             bindings.push( new NilBinding( '</td></tr>'));
         }
-        bindings.push( new NilBinding( '</table>'));
+        bindings.push( new NilBinding( '</table>'));*/
 
-
-
-        return seg;
+        uiComponents.push( comp);
+        return {
+            start : this.start,
+            length: this.length,
+            color: ParseColors.cyclingColor(0x9b4444),
+            title: "Huffman Table",
+            links: links,
+            uiComponents: uiComponents
+        };
     }
 
     private constructHuffmanCodes() {
         //First count how many you need
-        var count = 0;
-        for( var i=0; i<16; ++i) {
-            count += this.numPerRow[i];
-        }
-        var codes = new Uint16Array(count);
+        var codes = new Uint16Array(this.count);
         
         // Now apply the algorithm to construct the codes
         var c=0;
@@ -602,12 +615,12 @@ class HuffmanData extends SegmentBuilder {
         var index = 0;
 
         for( var i=0; i<16; ++i) {
-            if( this.numPerRow[i] == 0) {
+            if( this.numPerRowT.get(this.reader.buffer, i) == 0) {
                 incr <<= 1;
                 continue;
             }
             codes[index++] = c = incr * (c+1);
-            for( var j=1; j < this.numPerRow[i]; ++j) {
+            for( var j=1; j < this.numPerRowT.get(this.reader.buffer, i); ++j) {
                 codes[index++] = ++c;
             }
 
@@ -619,7 +632,7 @@ class HuffmanData extends SegmentBuilder {
         // Now construct the short-hand access
         var c=0;
         for( var k=0; k<16; ++k) {
-            if( this.numPerRow[k] == 0) {
+            if( this.numPerRowT.get(this.reader.buffer, k)== 0) {
                 this.maxCode[0] = -1;
                 continue;
             }
@@ -627,7 +640,7 @@ class HuffmanData extends SegmentBuilder {
             c+=1;
             this.valPtr[k] = c - 1;
             this.minCode[k] = this.codes[c-1];
-            c = c + this.numPerRow[k] - 1;
+            c = c + this.numPerRowT.get(this.reader.buffer, k) - 1;
             this.maxCode[k] = this.codes[c - 1];
         }
     }
@@ -638,10 +651,10 @@ class SOSData extends SegmentBuilder {
     numComponents: number;
     componentID: Uint8Array;
     htableID: Uint8Array;
-    constructor(reader : BinaryReader, start:number, len:number) {
+    constructor(reader : BinaryReaderLinker, start:number, len:number) {
         super(reader, start, len+2);
 
-        this.numComponents = reader.readByte();
+        this.numComponents = reader.readByte().get(reader.buffer);
 
         if( len < this.numComponents*2 + 6) throw "Bad SOS Marker";
         if( len > this.numComponents*2 + 6) console.log("Bad SOS Marker (Nonstandard data added?).  Attempting to ignore.");
@@ -650,8 +663,8 @@ class SOSData extends SegmentBuilder {
         this.htableID = new Uint8Array(this.numComponents);
 
         for( var i=0; i<this.numComponents; ++i) {
-            this.componentID[i] = reader.readByte();
-            this.htableID[i] = reader.readByte();
+            this.componentID[i] = reader.readByte().get(reader.buffer);
+            this.htableID[i] = reader.readByte().get(reader.buffer);
         }
 
         // 3 Bytes which are ignored

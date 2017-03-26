@@ -166,7 +166,6 @@ export module UIComponents {
 
             for( var i=0; i < this.pieces.length; ++i) {
                 str += this.pieces[i];
-                console.log(str);
             }
             for( var i=0; i < this.links.length; ++i) {
                 str = str.replace('%c','db_'+this.links[i]);

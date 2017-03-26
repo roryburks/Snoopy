@@ -83,7 +83,7 @@ function appendChunkHeaders(
     uiComponents : UIComponent[]) 
 {
     var cLen = new BinLinks.UIntLink(start);
-    var cHead = new BinLinks.UTF8StrLink(start+4,4);
+    var cHead = new BinLinks.UTF8StrLink(start+4,4, false);
     var cSum = new BinLinks.BytesLink(start+len-4, 4);
     uiComponents.unshift( new UIComponents.SimpleUIC(
         '<span class="chunkDesc">Segment Header: %d Length: %d</span><br />',

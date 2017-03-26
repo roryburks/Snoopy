@@ -91,14 +91,17 @@ export module BinLinks {
     }
     export class UTF8StrLink extends BaseBinLink {
         length : number;
-        constructor( seek : number, length: number) {
+        nt: boolean;
+        constructor( seek : number, length: number, nullTerminated : boolean) {
             super(seek);
             this.length = length;
+            this.nt = nullTerminated;
         }
         get( data : Uint8Array) : string {
-            var bytes = new Uint8Array(this.length);
+            var n = (this.nt)?this.length-1:this.length;
+            var bytes = new Uint8Array(n);
 
-            for( var i=0; i < this.length; ++i) 
+            for( var i=0; i < n; ++i) 
                 bytes[i] = data[this.seek+i];
             
             var encodedString = String.fromCharCode.apply(null, new Uint8Array(bytes)),
@@ -107,6 +110,65 @@ export module BinLinks {
         }
         getStartByte() : number {return this.seek;}
         getLength() : number {return this.length;}
+    }
+
+    class PNSubLink extends DataLink {
+        context: PackedNumberLink;
+        index : number;
+
+        constructor( context: PackedNumberLink, index : number) {
+            super();
+            this.context = context;
+            this.index = index;
+        }
+        
+        get( data : Uint8Array) : number {return this.context.get(data, this.index);}
+        getValue(data : Uint8Array)  : string { return "" + this.get(data);}
+        
+        getStartByte() : number {return this.context.seek + this.index*this.context.bytelen;}
+        getLength() : number {return this.context.bytelen;}
+        getStartBitmask() : number {return 0xFF;}
+        getEndBitmask() : number {return 0xFF;}
+    }
+    export class PackedNumberLink extends DataLink {
+        seek : number;
+        length : number;
+        bytelen : number
+        littleEndian : boolean;
+        constructor( seek : number, length : number, bytelen : number, littleEndian : boolean) 
+        {
+            super();
+            this.seek = seek;
+            this.length = length;
+            this.bytelen = bytelen;
+            this.littleEndian = littleEndian;
+        }
+
+        subLink( index : number) : DataLink {return new PNSubLink(this, index);}
+
+        get(data : Uint8Array, index : number) : number {
+            var n = 0;
+            var s = index * this.bytelen + this.seek;
+
+            for( var i=0; i<this.bytelen; ++i) {
+                if( this.littleEndian) {
+                    n |= data[s+i] << (8*i);
+                }
+                else {
+                    n <<= 8;
+                    n |= data[s+i];
+                }
+            }
+            return n;
+        }
+
+        getVLength() : number { return this.length;}
+        getValue(data : Uint8Array)  : string {return "Packed Data";}
+        getStartByte() : number {return this.seek;}
+        getLength() : number {return this.length * this.bytelen;}
+        getStartBitmask() : number {return 0xFF;}
+        getEndBitmask() : number {return 0xFF;}
+
     }
 }
 
@@ -156,6 +218,30 @@ export module SpecialLinks {
         
         get( data: Uint8Array) : number {
             return this.base.get(data) / this.factor;
+        }
+        getValue(data : Uint8Array)  : string { return "" + this.get(data);}
+        getStartByte() : number { return this.base.getStartByte();}
+        getStartBitmask() : number { return this.base.getStartBitmask();}
+        getLength() : number { return this.base.getLength();}
+        getEndBitmask() : number { return this.base.getEndBitmask();}
+    }
+
+    /** A PartialByteLink is a type of link designed for data which is packed in 
+     * bit-lengths smaller than a byte (but still all in one byte).
+     */
+    export class PartialByteLink extends DataLink {
+        base : BinLinks.ByteLink;
+        offset : number;
+        len : number
+        constructor( base : BinLinks.ByteLink, offset : number, len: number) {
+            super();
+            this.base = base;
+            this.offset = offset;
+            this.len = len;
+        }
+        
+        get( data: Uint8Array) : number {
+            return (this.base.get(data) >>> this.offset) & ((1 << this.len) - 1);
         }
         getValue(data : Uint8Array)  : string { return "" + this.get(data);}
         getStartByte() : number { return this.base.getStartByte();}
@@ -234,15 +320,20 @@ export class BinaryReaderLinker {
         }
         this.seeker += i+1;
         
-        return new BinLinks.UTF8StrLink( this.seeker - (i+1), i+1);
+        return new BinLinks.UTF8StrLink( this.seeker - (i+1), i+1, true);
     }
 
     /** Reads a UTF8-encoded string from a fixed length of bytes.  */
     readUTF8StrLen( n :number) : BinLinks.UTF8StrLink {
         this.seeker += n;
-        return new BinLinks.UTF8StrLink(this.seeker-n, n);
+        return new BinLinks.UTF8StrLink(this.seeker-n, n, false);
     }
     
+    readPacked( count: number,  bytelen: number,littleEndian: boolean) {
+        var l = bytelen*count;
+        this.seeker += l;
+        return new BinLinks.PackedNumberLink( this.seeker-l, count, bytelen, littleEndian);
+    }
 
     getSeek() : number { return this.seeker;}
     setSeek(n : number) { 
