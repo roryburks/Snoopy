@@ -86,10 +86,10 @@ function appendChunkHeaders(
     var cHead = new BinLinks.UTF8StrLink(start+4,4, false);
     var cSum = new BinLinks.BytesLink(start+len-4, 4);
     uiComponents.unshift( new UIComponents.SimpleUIC(
-        '<span class="chunkDesc">Segment Header: %d Length: %d</span><br />',
+        '<span class="chunkDesc">Segment Header: %D Length: %D</span><br />',
         links.push(cLen)-1, links.push(cHead)-1));
     uiComponents.push( new UIComponents.SimpleUIC(
-        '<span class="chunkDesc"><br />Data Checksum: %d</span>',
+        '<span class="chunkDesc"><br />Data Checksum: %Dh</span>',
         links.push( cSum)-1));
 }
 
@@ -184,22 +184,22 @@ class IHDRData extends SegmentData {
         var links : DataLink[] = [];
 
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Image Dimensions: %d x %d <br />", 
+            "Image Dimensions: %D x %D <br />", 
             links.push( this.width)-1, links.push( this.height)-1));
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Bit Depth: %d bit<br />", 
+            "Bit Depth: %D bit<br />", 
             links.push( this.bitDepth)-1));
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Color Type: %d<br />", 
+            "Color Type: %D<br />", 
             links.push( this.colorType)-1));
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Compression Method: %d <br />", 
+            "Compression Method: %D <br />", 
             links.push( this.compressionMethod)-1));
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Filter Method: %d <br />", 
+            "Filter Method: %D <br />", 
             links.push( this.filterMethod)-1));
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Interlace Method: %d <br />", 
+            "Interlace Method: %D <br />", 
             links.push( this.interlaceMethod)-1));
 
         appendChunkHeaders( this.start, this.length, links, uiComponents);
@@ -236,7 +236,7 @@ class sRGBData extends SegmentData {
         var links : DataLink[] = [];
 
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Rendering Intend: %d", links.push(this.intent)-1));
+            "Rendering Intend: %D", links.push(this.intent)-1));
 
         appendChunkHeaders( this.start, this.length, links, uiComponents);
 
@@ -264,7 +264,7 @@ class gAMAData extends SegmentData {
         var links : DataLink[] = [];
 
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Gamma: %d (1/1000000 of stored value)", links.push(this.gamma)-1));
+            "Gamma: %D (1/1000000 of stored value)", links.push(this.gamma)-1));
 
         appendChunkHeaders( this.start, this.length, links, uiComponents);
 
@@ -296,7 +296,7 @@ class pHYsData extends SegmentData {
         var links : DataLink[] = [];
 
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Physical Pixel Dimensions: %d x %d piexels per %d",
+            "Physical Pixel Dimensions: %D x %D piexels per %D",
             links.push( this.pwidth)-1, links.push( this.pheight)-1, links.push(this.type)-1));
 
         appendChunkHeaders( this.start, this.length, links, uiComponents);

@@ -12,7 +12,7 @@ export module BinLinks {
             super();
             this.seek = seek;
         }
-        getValue(data : Uint8Array)  : string {return "" + this.get(data);}
+        getValue(data : Uint8Array)  : any {return this.get(data);}
         getStartBitmask() : number {return 0xFF;}
         getEndBitmask() : number {return 0xFF;}
         get(data : Uint8Array) : any {return undefined;}
@@ -123,7 +123,7 @@ export module BinLinks {
         }
         
         get( data : Uint8Array) : number {return this.context.get(data, this.index);}
-        getValue(data : Uint8Array)  : string { return "" + this.get(data);}
+        getValue(data : Uint8Array)  : any { return this.get(data);}
         
         getStartByte() : number {return this.context.seek + this.index*this.context.bytelen;}
         getLength() : number {return this.context.bytelen;}
@@ -168,8 +168,8 @@ export module BinLinks {
         getLength() : number {return this.length * this.bytelen;}
         getStartBitmask() : number {return 0xFF;}
         getEndBitmask() : number {return 0xFF;}
-
     }
+
 }
 
 /**
@@ -219,7 +219,7 @@ export module SpecialLinks {
         get( data: Uint8Array) : number {
             return this.base.get(data) / this.factor;
         }
-        getValue(data : Uint8Array)  : string { return "" + this.get(data);}
+        getValue(data : Uint8Array)  : any { return this.get(data);}
         getStartByte() : number { return this.base.getStartByte();}
         getStartBitmask() : number { return this.base.getStartBitmask();}
         getLength() : number { return this.base.getLength();}
@@ -243,11 +243,26 @@ export module SpecialLinks {
         get( data: Uint8Array) : number {
             return (this.base.get(data) >>> this.offset) & ((1 << this.len) - 1);
         }
-        getValue(data : Uint8Array)  : string { return "" + this.get(data);}
+        getValue(data : Uint8Array)  : any { return this.get(data);}
         getStartByte() : number { return this.base.getStartByte();}
         getStartBitmask() : number { return this.base.getStartBitmask();}
         getLength() : number { return this.base.getLength();}
         getEndBitmask() : number { return this.base.getEndBitmask();}
+    }
+    
+    export class NullDataLink extends DataLink {
+        seek: number;
+        length: number;
+        constructor( seek : number, length: number) {
+            super();
+            this.seek = seek;
+            this.length = length;
+        }
+        getValue(data : Uint8Array)  : any {return undefined;}
+        getStartByte() : number {return this.seek;}
+        getLength() : number {return this.length;}
+        getStartBitmask() : number {return 0xFF;}
+        getEndBitmask() : number {return 0xFF;}
     }
 }
 

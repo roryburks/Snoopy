@@ -51,7 +51,7 @@ class JPGParser extends Parser{
             length : 2,
             color : "#a0a2de",
             title : "Start of Image",
-            uiComponents : [new UIComponents.SimpleUIC("%d %d", 0, 1)],
+            uiComponents : [new UIComponents.SimpleUIC("%Dh %Dh", 0, 1)],
             links : [a, b]
         });
 
@@ -283,14 +283,14 @@ class JFIFData extends SegmentBuilder {
 
 
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Version: %d.%d<br />", 
+            "Version: %D.%D<br />", 
             links.push(this.versionMajor)-1, links.push(this.versionMinor)-1));
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Pixel Density: %d x %d  %d<br />", 
+            "Pixel Density: %D x %D  %D<br />", 
             links.push(this.xDensity)-1, links.push(this.yDensity)-1,links.push(this.pixelDensityUnits)-1));
 
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Thumbnail Size: %d x %d<br />", 
+            "Thumbnail Size: %D x %D<br />", 
             links.push(this.xThumbnail)-1, links.push(this.yThumbnail)-1));        
 
         var tx = this.xThumbnail.get( this.reader.buffer);
@@ -396,7 +396,7 @@ class QuantTableData extends SegmentBuilder {
         var comp = new UIComponents.ComplexUIC();
 
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Table Bit Depth: %d   Destination: %d <br />Table:<br />",
+            "Table Bit Depth: %D   Destination: %D <br />Table:<br />",
             links.push(this.highPrec)-1, links.push(this.dest)-1));
             
         comp.addPiece('<div class="matrix"><span class="matrixLeft"></span><table class="matrixContent">');
@@ -467,17 +467,17 @@ class SOFData extends SegmentBuilder {
         var uiComponents : UIComponent[] = [];
 
         uiComponents.push(new  UIComponents.SimpleUIC(
-            "%d-bit Precision <br />", links.push(this.precision)-1));
+            "%D-bit Precision <br />", links.push(this.precision)-1));
         uiComponents.push(new  UIComponents.SimpleUIC(
-            "Image Size: %d x %d <br />", 
+            "Image Size: %D x %D <br />", 
             links.push(this.width)-1,links.push(this.height)-1));
         uiComponents.push(new  UIComponents.SimpleUIC(
-            "Number of Components: %d<br />", links.push(this.numComponents)-1));
+            "Number of Components: %D<br />", links.push(this.numComponents)-1));
 
         var n = this.numComponents.get(this.reader.buffer);
         for( var i=0; i<n; ++i) {
             uiComponents.push( new UIComponents.SimpleUIC(
-                "Component "+i+": %d sampling factors: %d x %d Quantization Table: %d<br />",
+                "Component "+i+": %D sampling factors: %D x %D Quantization Table: %D<br />",
                 links.push(this.cField[i])-1, links.push(this.cFactorHor[i])-1,
                 links.push(this.cFactorVert[i])-1, links.push(this.cQTable[i])-1));
         }
@@ -539,7 +539,7 @@ class HuffmanData extends SegmentBuilder {
         var bindings : Binding[] = [];
 
         uiComponents.push( new UIComponents.SimpleUIC(
-            "Huffman Table Destination: %d <br />",
+            "Huffman Table Destination: %D <br />",
             links.push(this.id)-1));
 
         comp.addPiece('<table class="simpleTable"><tr><th style="font-size:10px">Bit<br />Length</th><th>Byte the code is mapped to (mouse over for the code)</th></tr>');
@@ -553,7 +553,7 @@ class HuffmanData extends SegmentBuilder {
                 var binstr = (this.codes[index]>>>0).toString(2);
                 while( binstr.length < (i+1)) binstr = "0"+binstr;
 
-                comp.addPiece( '<span class="%c"><div class="htt">%d<span class="ttt">'+binstr+'</span></div></span> ',
+                comp.addPiece( '<span class="%c"><div class="htt">%dh_2<span class="ttt">'+binstr+'</span></div></span> ',
                     links.push( this.rawT.subLink(index))-1);
                 index++;
             }
@@ -569,30 +569,7 @@ class HuffmanData extends SegmentBuilder {
             ? '<span class="htt">DC<span class="ttt">Direct Current Terms of Discrete Cosine Transform</span></span>'
             :'<span class="htt">AC<span class="ttt">Alternating Current Terms of Discrete Cosine Transform</span></span>';
         str += ")";
-        bindings.push( new DataBinding_(str, this.start, 1));
-
-        var index = 0;
-        bindings.push( new NilBinding( '<table class="simpleTable"><tr><th style="font-size:10px">Bit<br />Length</th><th>Byte the code is mapped to (mouse over for the code)</th></tr>'));
-        for( var i=0; i<16; ++i) {
-            var n = this.numPerRow[i];
-            bindings.push( new NilBinding( '<tr>'));
-            bindings.push( new CellBinding('<div class="htt">'+(i+1)+': <span class="ttt">File stores how many entries of length '+(i+1)+' that need to be mapped.</span></div>', this.start + 1 + i, 1));
-            bindings.push( new NilBinding( '<td>'));
-            for( var j=0; j<n; ++j) {
-                var binstr = (this.codes[index]>>>0).toString(2);
-                var hexstr = this.raw[index].toString(16);
-
-                while( binstr.length < (i+1)) binstr = "0"+binstr;
-                while( hexstr.length < 2) hexstr = "0" + hexstr;
-
-
-                bindings.push( new DataBinding_( '<div class="htt">'+ hexstr + '<span class="ttt">'+binstr+'</span></div>', this.start + 16+1 + index, 1));
-                bindings.push( new NilBinding( "  "));
-                index++;
-            }
-            bindings.push( new NilBinding( '</td></tr>'));
-        }
-        bindings.push( new NilBinding( '</table>'));*/
+        bindings.push( new DataBinding_(str, this.start, 1));*/
 
         uiComponents.push( comp);
         return {
@@ -648,59 +625,67 @@ class HuffmanData extends SegmentBuilder {
 
 class SOSData extends SegmentBuilder {
 
-    numComponents: number;
-    componentID: Uint8Array;
-    htableID: Uint8Array;
+    numComponents: BinLinks.ByteLink;
+
+    componentID: DataLink[];
+    htableID: BinLinks.ByteLink[];
+    nulldl : DataLink;
     constructor(reader : BinaryReaderLinker, start:number, len:number) {
         super(reader, start, len+2);
 
-        this.numComponents = reader.readByte().get(reader.buffer);
+        this.numComponents = reader.readByte();
 
-        if( len < this.numComponents*2 + 6) throw "Bad SOS Marker";
-        if( len > this.numComponents*2 + 6) console.log("Bad SOS Marker (Nonstandard data added?).  Attempting to ignore.");
+        var nc = this.numComponents.get( reader.buffer);
+        if( len < nc*2 + 6) throw "Bad SOS Marker";
+        if( len > nc*2 + 6) console.log("Bad SOS Marker (Nonstandard data added?).  Attempting to ignore.");
 
-        this.componentID = new Uint8Array(this.numComponents);
-        this.htableID = new Uint8Array(this.numComponents);
+        this.componentID = new Array(nc);
+        this.htableID = new Array(nc);
 
-        for( var i=0; i<this.numComponents; ++i) {
-            this.componentID[i] = reader.readByte().get(reader.buffer);
-            this.htableID[i] = reader.readByte().get(reader.buffer);
+        for( var i=0; i<nc; ++i) {
+            this.componentID[i] = new SpecialLinks.EnumLink( 
+                reader.readByte(),
+                {
+                    "1":"Y",
+                    "2":"Cb",
+                    "3":"Cr",
+                    "4":"I",
+                    "5":"Q"
+                }, "Unknown Component type.");
+            this.htableID[i] = reader.readByte();
         }
 
         // 3 Bytes which are ignored
+        this.nulldl = new SpecialLinks.NullDataLink( reader.getSeek(), 3);
         reader.setSeek(reader.getSeek()+3);
     }
 
     
     constructSegment() : Segment {
-        var bindings: Binding[] = [];
+        var uiComponents : UIComponent[] = [];
+        var links : DataLink[] = [];
 
-        bindings.push( new NilBinding("Number of Components: "));
-        bindings.push( new DataBinding_(""+this.numComponents,this.start + 4, 1));
-        for( var i=0; i<this.numComponents; ++i) {
-            bindings.push( new NilBinding("<br />Component #"+i+": "));
-
-            var str;
-            switch( this.componentID[i]) {
-                case 1: str = "Y"; break;
-                case 2: str = "Cb"; break;
-                case 3: str = "Cr"; break;
-                case 4: str = "I"; break;
-                case 5: str = "Q"; break;
-                default: str = "Unknown Component type.";
-            }
-            bindings.push( new DataBinding_(str, this.start + 5 + 2*i, 1));
-            bindings.push( new NilBinding(", using Huffman Table: "));
-            bindings.push( new DataBinding_(""+this.htableID[i], this.start + 5 + 2*i + 1, 1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Number of Components: %D<br />", links.push( this.numComponents)-1));
+        
+        var nc = this.numComponents.get( this.reader.buffer);
+        for( var i=0; i<nc; ++i) {
+            uiComponents.push( new UIComponents.SimpleUIC(
+                "Component #"+i+": %D, using Huffman Table: %D <br />",
+                links.push( this.componentID[i])-1, links.push(this.htableID[i])-1));
         }
-        bindings.push( new NilBinding("<br />"));
-        bindings.push( new DataBinding_("Unused Data", this.start + 5 + 2*this.numComponents, 3));
+
+        var comp = new UIComponents.ComplexUIC();
+        comp.addPiece( '<span class="%c">Unused Data</span>',
+            links.push( this.nulldl)-1);
+        uiComponents.push( comp);
+
         return {
             start: this.start,
             length: this.length,
             color: "#AAAA55",
-            uiComponents : [],
-            links : [],
+            uiComponents : uiComponents,
+            links : links,
             title: "Start of Scan Block"
         }
     }

@@ -79,7 +79,7 @@ export interface UIComponent {
     buildUI(context : Segment, data: Uint8Array) : string;
 }
 export abstract class DataLink {
-    abstract getValue(data : Uint8Array)  : string;
+    abstract getValue(data : Uint8Array)  : any;
     abstract getStartByte() : number;
     abstract getStartBitmask() : number;
     abstract getLength() : number;
@@ -103,8 +103,8 @@ export module LinkTypes {
             this.seek = reader.getSeek();
             this.offset = offset;
         }
-        getValue(data : Uint8Array) : string { 
-            return "" + (((data[this.seek] >>> this.offset)&1) != 0);
+        getValue(data : Uint8Array) : any { 
+            return (((data[this.seek] >>> this.offset)&1) != 0);
         }
         getStartByte() : number {return this.seek;}
         getStartBitmask() : number {return (1 << this.offset);}
@@ -116,8 +116,8 @@ export module LinkTypes {
         size : number;
         seek : number;
         
-        getValue(data : Uint8Array)  : string {
-            return "" + ((data[this.seek] >>> this.offset)&((1 << this.size)-1));
+        getValue(data : Uint8Array)  : any {
+            return ((data[this.seek] >>> this.offset)&((1 << this.size)-1));
         }
         getStartByte() : number {return this.seek;}
         getStartBitmask() : number {return ((1 << this.size) - 1) << this.offset;}
@@ -139,8 +139,12 @@ export module UIComponents {
             if( !this.links) return this.comment;
 
             for( var i=0; i < this.links.length; ++i) {
-                this.comment = this.comment.replace( '%d',
-                    '<span class="db_' + this.links[i] + '">'+context.links[this.links[i]].getValue(data)+'</span>');
+
+                this.comment = parseFormat( 
+                    this.comment, context.links[this.links[i]], this.links[i], data);
+                
+//                this.comment.replace( '%d',
+//                    '<span class="db_' + this.links[i] + '">'+context.links[this.links[i]].getValue(data)+'</span>');
             }
             return this.comment;
         }
@@ -151,29 +155,86 @@ export module UIComponents {
         //  to a certain piece and replace it mid-piece instead of once the entire
         //  string is constructed
         pieces : string[] = [];
-        links : number[] = [];
+        links : number[][] = [];
         
         addPiece( piece : string, ...links: number[]) {
             this.pieces.push(piece);
-
-            if( links) {
+            this.links.push(links);
+/*            if( links) {
                 for( var i=0; i < links.length; ++i)
                     this.links.push( links[i]);
-            }
+            }*/
         }
         buildUI(context : Segment, data: Uint8Array) : string{
             var str = "";
 
             for( var i=0; i < this.pieces.length; ++i) {
-                str += this.pieces[i];
-            }
-            for( var i=0; i < this.links.length; ++i) {
-                str = str.replace('%c','db_'+this.links[i]);
-                str = str.replace('%d',context.links[this.links[i]].getValue(data));
+                var substr = this.pieces[i];
+
+                if( this.links[i]) {
+                    for( var j=0; j < this.links[i].length; ++j) {
+                        substr = parseFormat(
+                            substr, context.links[this.links[i][j]], this.links[i][j], data);
+                    }
+                }
+
+                str += substr;
             }
 
             return str;
         }
+    }
+
+    /**
+     * 
+     * %c : data bind class for the corresponding index, i.e. db_i
+     * %d : string version of the data
+     * %dh : the linked data converted to hex strong
+     * %dh_# : the linked data converted to hex string of length #
+     * %D... : as above, but automatically wraps it in a span that has the class link
+     */
+    function parseFormat(
+         str : string, link : DataLink, index : number, data: Uint8Array) : string 
+    {
+        var ret = str;
+        ret = ret.replace('%c','db_'+index);
+
+        var o = link.getValue(data);
+
+        var dloc = ret.indexOf('%d');
+        var wrap = false;
+        if( dloc == -1) {
+            dloc = ret.indexOf('%D');
+            wrap = true;
+        }
+        if( dloc != -1) {
+            var char = ret.charAt(dloc+2);
+
+            var replace_str = "";
+            var len_to_replace = 2;
+            switch( char) {
+            case 'h':
+                var n : number = o;
+                var hex_str = n.toString(16);
+                len_to_replace = 3;
+                if( ret.charAt(dloc+3) == '_'){
+                    len_to_replace = 5;
+                    let hlen = parseInt( ret.charAt(dloc+4), 10);
+                    while( hex_str.length < hlen)
+                        hex_str = "0" + hex_str;
+                }
+                replace_str = hex_str;
+                break;
+            default:
+                replace_str = ""+o;
+            }
+            if( wrap) {
+                replace_str = '<span class="db_'+index+'">' + replace_str + '</span>';
+            }
+            ret = ret.substr(0,  dloc) + replace_str + ret.substr(dloc+len_to_replace);
+        }
+
+        return ret;
     }
 }
 
