@@ -125,6 +125,9 @@ body {
     border-color: black;
     border-width: 2px;
 }
+.segmentBinHL {
+    background-color: #BB6666
+}
 
 #treeSeparator {
     border-style: double none double none;

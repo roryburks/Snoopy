@@ -14,6 +14,8 @@ export class UIManager {
     scrollField : HTMLDivElement;
     segmentContent : HTMLDivElement;
     segmentTitle : HTMLElement;
+    binfield : HTMLElement;
+
     parsed : ParseStructure;
     segments : Segment[];
     filename : string;
@@ -31,6 +33,7 @@ export class UIManager {
         this.scrollField = $("#efScroll").get(0) as HTMLDivElement;
         this.segmentContent = $("#segmentContent").get(0) as HTMLDivElement;
         this.segmentTitle = $("#segmentTitle").get(0);
+        this.binfield = $("#segmentBin").get(0);
 
 
         this.initComponents();
@@ -105,7 +108,10 @@ export class UIManager {
             for( let i=0; i<seg.links.length; ++i) {
                 var ele = $(".db_"+i);
                 ele.click( ((evt: JQueryEventObject): any => {
-                    this.bindingClicked(i);
+                    this.bindingHighlighted(i);
+                }).bind(this));
+                ele.mouseover( ((evt: JQueryEventObject): any => {
+                    this.bindingHighlighted(i);
                 }).bind(this));
                 ele.addClass("sfInt");
             }
@@ -122,19 +128,59 @@ export class UIManager {
         }
     }
 
-    private bindingClicked( index : number) {
+    /** Called when the user clicks or mouses over on one of the bound elements
+     *  inside the Segment area.
+     */
+    private bindingHighlighted( index : number) {
         if( !this.boundSegment || index < 0 || !this.boundSegment.links 
             || this.boundSegment.links.length <= index) 
             return;
+        
+        var link = this.boundSegment.links[index];
 
-        //
+        // Higlight the area of the DataLink
         var bound : Bound = {
-            start : this.boundSegment.links[index].getStartByte(),
-            len : this.boundSegment.links[index].getLength()
+            start : link.getStartByte(),
+            len : link.getLength()
         };
         if( this.hexComponent) this.hexComponent.setHighlighted(bound );
+
+        var inner = "";
+        var sbm = link.getStartBitmask();
+        var len = link.getLength();
+
+        if( len == 1) {
+            if( (sbm&0xFF) != 0xFF) {
+                inner = this.highlightedByte( this.data[link.getStartByte()], sbm);
+            }
+        }
+
+
+        this.binfield.innerHTML = inner;
     }
 
+    private highlightedByte( byte : number, bitmask : number) : string {
+        var str = byte.toString(2);
+        while( str.length < 8) str = "0"+str;
+
+        var set = false;
+        for( var i=0; i<9; ++i) {
+            if( set && (i == 8 || !(bitmask & (1<<i)))){
+                str = str.substr(0, 8-i) + '<span class="segmentBinHL">' + str.substr(8-i);
+                set = false;
+            }
+            else if( !set && i != 8 && (bitmask & (1<<i))){
+                str = str.substr(0, 8-i) + '</span>' + str.substr(8-i);
+                set = true;
+            }
+        }
+
+        return str;
+    }
+
+    /** Is called by the HexComponent whenever the user's editor selection
+     * has changed.
+     */
     selectionChanged( selected : Bound[]) {
         if( !selected) return;
 
