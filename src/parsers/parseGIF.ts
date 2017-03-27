@@ -1,24 +1,27 @@
-import {BinaryReader} from "../binaryReader";
-import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding_, CellBinding, SegmentNode}
+import {ParseStructure, Parser, Segment, Binding, NilBinding,
+     DataBinding_, CellBinding, SegmentNode, UIComponents, UIComponent, DataLink}
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor, Uint8ToString} from "../util";
+import {BinaryReaderLinker, BinLinks, SpecialLinks} from "./binReaderLinker";
 
 export class GIFParser extends Parser {
     parsed : ParseStructure;
 
     header : HeaderSegment;
     globalTable : ColorTable = null;
+    lread : BinaryReaderLinker;
     
     parse() : ParseStructure {
         this.parsed = new ParseStructure();
+        this.lread = new BinaryReaderLinker(this.data);
 
         // Parse the IHDR
-        this.header = new HeaderSegment( this.reader, 0, this);
+        this.header = new HeaderSegment( this.lread, 0, this);
         if( this.header.bad) return null;
 
         if( this.header.globalTable) {
-            this.globalTable = new ColorTable(this.reader, this.reader.getSeek(), this, this.header.ctableSize);
+            this.globalTable = new ColorTable(this.lread, this.lread.getSeek(), this, this.header.ctableSize.getValue(this.data));
         }
 
 
@@ -32,12 +35,12 @@ export class GIFParser extends Parser {
         }
 
         while( true) {
-            var start = this.reader.getSeek();
-            var marker = this.reader.readByte();
+            var start = this.lread.getSeek();
+            var marker = this.lread.readByte().get( this.data);
 
             if( marker == 0x3B) {
                 this.parsed.segmentTree.getRoot().addSegment( {
-                    start : this.reader.getSeek()-1,
+                    start : this.lread.getSeek()-1,
                     length : 1,
                     color : "#AACCCC",
                     uiComponents : [],
@@ -50,47 +53,47 @@ export class GIFParser extends Parser {
                 //   Image Super-Segment
                 var localRoot : SegmentNode =((currentImageRoot == null) ? this.parsed.segmentTree.getRoot().addNullSegment("Image #"+(imgNum++)) : currentImageRoot);
 
-                var imgDesc = new ImageDescriptor( this.reader, start, this);
+                var imgDesc = new ImageDescriptor( this.lread, start, this);
                 localRoot.addSegment( imgDesc.constructSegment());
-                if( imgDesc.hasColorTable) {
-                    var cTable = new ColorTable( this.reader, this.reader.getSeek(), this, imgDesc.ctableSize);
+                if( imgDesc.hasColorTable.get(this.data)) {
+                    var cTable = new ColorTable( this.lread, this.lread.getSeek(), this, imgDesc.ctableSize.getValue(this.data));
                     localRoot.addSegment( cTable.constructSegment());
                 }
-                var imgData = new ImageData( this.reader, this.reader.getSeek(), this);
+                var imgData = new ImageData( this.lread, this.lread.getSeek(), this);
                 localRoot.addSegment( imgData.constructSegment());
                 currentImageRoot = null;
             }
             else {
                 if( marker == undefined) break;
-                marker = (marker << 8) + this.reader.readByte();
-                var len = this.reader.readByte();
+                marker = (marker << 8) + this.lread.readByte().get(this.data);
+                var len = this.lread.readByte().get(this.data);
 
                 var data : SegmentData;
                 switch( marker) {
                     case 0x21F9:
-                    data = new GraphicsControlSegment( this.reader, start, this, len);
+                    data = new GraphicsControlSegment( this.lread, start, this, len);
                     currentImageRoot = this.parsed.segmentTree.getRoot().addNullSegment("Image #"+(imgNum++));
                     break;
                     case 0x21FE:
-                    data = new CommentExtension( this.reader, start, this, len);
+                    data = new CommentExtension( this.lread, start, this, len);
                     break;
                     case 0x21FF:
-                    data = new ApplicationExtension(this.reader, start, this, len);
-                    len += (data as ApplicationExtension).sublen + 1;
+                    data = new ApplicationExtension(this.lread, start, this, len);
+                    len += (data as ApplicationExtension).sublen.getValue(this.data) + 1;
                     break;
                     default:
-                    data = new UnknownBlock( this.reader, start, this, marker, len);
+                    data = new UnknownBlock( this.lread, start, this, marker, len);
                     break;
                 }
                 if( currentImageRoot)
                     currentImageRoot.addSegment( data.constructSegment());
                 else 
                     this.parsed.segmentTree.getRoot().addSegment( data.constructSegment());
-                this.reader.setSeek( start + 4 + len);
+                this.lread.setSeek( start + 4 + len);
             }
         }
 
-        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.reader.buffer)) + '" />';
+        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.data)) + '" />';
 
         return this.parsed;
     }
@@ -103,9 +106,9 @@ export class GIFParser extends Parser {
 
 abstract class SegmentData {
     start : number;
-    reader : BinaryReader;
+    reader : BinaryReaderLinker;
     context : GIFParser;
-    constructor( reader : BinaryReader, start:number, context : GIFParser) {
+    constructor( reader : BinaryReaderLinker, start:number, context : GIFParser) {
         this.start = start;
         this.reader = reader;
         this.context = context;
@@ -116,7 +119,7 @@ abstract class SegmentData {
 class UnknownBlock extends SegmentData {
     id : number;
     length : number;
-    constructor( reader : BinaryReader, start:number, context : GIFParser, id : number, length : number) {
+    constructor( reader : BinaryReaderLinker, start:number, context : GIFParser, id : number, length : number) {
         super( reader, start, context);
         this.id = id;
         this.length = length;
@@ -135,24 +138,26 @@ class UnknownBlock extends SegmentData {
 
 class CommentExtension extends SegmentData {
     length : number;
-    comment : string;
-    constructor( reader : BinaryReader, start:number, context : GIFParser, length : number) {
+    comment : DataLink;
+    constructor( reader : BinaryReaderLinker, start:number, context : GIFParser, length : number) {
         super( reader, start, context);
         this.length = length;
 
         this.comment = reader.readUTF8StrLen(length);
     }
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
 
-        bindings.push( new DataBinding_('<span class="comment">'+this.comment+'</span>', this.start+3, this.length));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            '<span class="comment">%D</span>', links.push( this.comment)-1));
 
         return {
             start: this.start,
             length : this.length + 4,
             color : ParseColors.comment,
-            uiComponents : [],
-            links : [],
+            uiComponents : uiComponents,
+            links : links,
             title : "Comment Extension"
         };
     }
@@ -160,11 +165,11 @@ class CommentExtension extends SegmentData {
 
 class ApplicationExtension extends SegmentData {
     len : number;
-    identifier : string;
-    authentifier : string;
 
-    sublen : number;
-    constructor( reader : BinaryReader, start:number, context : GIFParser, length : number) {
+    identifier : DataLink;
+    authentifier : DataLink;
+    sublen : DataLink;
+    constructor( reader : BinaryReaderLinker, start:number, context : GIFParser, length : number) {
         super( reader, start, context);
 
         this.len = length;
@@ -175,18 +180,23 @@ class ApplicationExtension extends SegmentData {
     }
     
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
 
-        bindings.push( new NilBinding( "Application: "));
-        bindings.push( new DataBinding_( this.identifier, this.start + 3, 8));
-        bindings.push( new NilBinding( "<br />Authentifier: "));
-        bindings.push( new DataBinding_( this.authentifier, this.start + 11, 3));
+        var comp = new UIComponents.ComplexUIC();
+
+        comp.addPiece( "Application: %D<br />", links.push(this.identifier)-1);
+        comp.addPiece( "Authentifier: %D<br />", links.push(this.authentifier)-1);
+        comp.addPiece( "Length of Sub-data: %D<br />", links.push(this.sublen)-1);
+
+
+        uiComponents.push( comp);
         return {
             start: this.start,
-            length : this.len + this.sublen + 5,
+            length : this.len + this.sublen.getValue(this.reader.buffer) + 5,
             color : randcolor(),
-            uiComponents : [],
-            links : [],
+            uiComponents : uiComponents,
+            links : links,
             title : "Application Block"
         };
     }
@@ -196,70 +206,71 @@ class ApplicationExtension extends SegmentData {
 
 class GraphicsControlSegment extends SegmentData {
     length : number;
-    transparent : boolean;
-    userInput : boolean;
-    disposal : number;
-    delay : number;
-    transIndex : number;
-    constructor( reader : BinaryReader, start:number, context : GIFParser, length : number) {
+    transparent : SpecialLinks.BitLink;
+    userInput : SpecialLinks.BitLink;
+    disposal : DataLink;
+    delay : DataLink;
+    transIndex : DataLink;
+    constructor( reader : BinaryReaderLinker, start:number, context : GIFParser, length : number) {
         super( reader, start, context);
         this.length = length;
 
         var packed = reader.readByte();
 
-        this.transparent = (packed & 1) != 0;
-        this.userInput = ((packed>>>1) & 1) != 0;
-        this.disposal = (packed >>> 2) & 0x7;
-        this.delay = reader.readUShortLE();
+        this.transparent = new SpecialLinks.BitLink(packed, 0);
+        this.userInput = new SpecialLinks.BitLink(packed, 1);
+        this.disposal = new SpecialLinks.EnumLink(
+            new SpecialLinks.PartialByteLink(packed, 2, 3),
+            {
+                "0": "No disposal method specified",
+                "1":"Do not dispose.",
+                "2":"Restore to background color.",
+                "3":"Restore to previous.",
+            },"Unknown disposal method.");
+        this.delay = new SpecialLinks.FactorLink(reader.readUShortLE(), 100);
         this.transIndex = reader.readByte();
     }
     constructSegment() : Segment {
-        var bindings :Binding[] = [];
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
+
+        var comp = new UIComponents.ComplexUIC();
         
-        bindings.push( new NilBinding( "Is Transparent: "));
-        bindings.push( new DataBinding_("" + this.transparent, this.start + 3, 1));
-        bindings.push( new NilBinding( "<br/>Waits for User Input: "));
-        bindings.push( new DataBinding_("" + this.userInput, this.start + 3, 1));
-        bindings.push( new NilBinding( "<br/>Disposal Method:"));
-        var str : string;
-        switch( this.disposal) {
-        case 0: str = "No disposal method specified"; break;
-        case 1: str = "Do not dispose."; break;
-        case 2: str = "Restore to background color"; break;
-        case 3: str = "Restore to previous."; break;
-        default: str = "Unknown disposal method."; break;
-        }
-        bindings.push( new DataBinding_(this.disposal + ": " + str, this.start + 3, 1));
-        bindings.push( new NilBinding( "<br/>Delay Time (1/100*value, in ms): "));
-        bindings.push( new DataBinding_("" + this.delay/100, this.start + 4, 2));
+        comp.addPiece("Is Transparent: %D <br />", links.push( this.transparent)-1);
+        comp.addPiece("Waits for User Input: %D <br />", links.push( this.userInput)-1);
+        comp.addPiece("Disposal Method: %D <br />", links.push( this.disposal)-1);
+        comp.addPiece("Delay Time: %D <br />", links.push( this.delay)-1);
+        comp.addPiece("Transparent Index: %D <br />", links.push( this.transIndex)-1);
+/*
         bindings.push( new NilBinding( "<br/>Transparent Index: "));
         bindings.push( new DataBinding_("" + ((this.transparent)?this.transIndex:"unused"), this.start + 6, 1));
+*/
+        uiComponents.push( comp);
 
         return {
             start : this.start,
             length : this.length + 4,
-            uiComponents : [],
-            links : [],
+            uiComponents : uiComponents,
+            links : links,
             color : "#c72cd3",
             title : "Graphics Control Extension" 
         };
     }
 }
-//        this.transparent = new Segments2.BoolBitLink( reader, 0);
 
 class ImageDescriptor extends SegmentData {
-    left : number;
-    top : number;
-    width: number;
-    height : number;
+    left : BinLinks.NumberLink;
+    top : BinLinks.NumberLink;
+    width: BinLinks.NumberLink;
+    height : BinLinks.NumberLink;
 
     
-    ctableSize : number;
-    sorted : boolean;
-    hasColorTable : boolean;
-    interlaced : boolean;
+    ctableSize : DataLink;
+    sorted : SpecialLinks.BitLink;
+    hasColorTable : SpecialLinks.BitLink;
+    interlaced : SpecialLinks.BitLink;
 
-    constructor( reader : BinaryReader, start:number, context : GIFParser) {
+    constructor( reader : BinaryReaderLinker, start:number, context : GIFParser) {
         super( reader, start, context);
 
         this.left = reader.readUShortLE();
@@ -269,36 +280,33 @@ class ImageDescriptor extends SegmentData {
 
         var packed = reader.readByte();
 
-        this.hasColorTable = (packed >> 7) == 1;
-        this.interlaced = (packed >> 6) == 1;
-        this.sorted = (packed >> 5) == 1;
-        this.ctableSize = (this.hasColorTable) ? 1 << ((packed & 0x7)+1) : 0;
+        this.hasColorTable = new SpecialLinks.BitLink(packed, 7);//(packed >> 7) == 1;
+        this.interlaced = new SpecialLinks.BitLink(packed, 6);
+        this.sorted = new SpecialLinks.BitLink(packed, 5);
+        this.ctableSize = new CTableDataLink( new SpecialLinks.PartialByteLink(packed, 0, 4));
     }
     constructSegment() : Segment {
-        var bindings :Binding[] = [];
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
 
-        bindings.push( new NilBinding( "Offset: "));
-        bindings.push( new DataBinding_("" + this.left, this.start + 1, 2));
-        bindings.push( new NilBinding( " x "));
-        bindings.push( new DataBinding_("" + this.top, this.start + 3, 2));
-        bindings.push( new NilBinding( "<br />Size: "));
-        bindings.push( new DataBinding_("" + this.width, this.start + 5, 2));
-        bindings.push( new NilBinding( " x "));
-        bindings.push( new DataBinding_("" + this.height, this.start + 7, 2));
-        bindings.push( new NilBinding( "<br />Has Local Color Table: "));
-        bindings.push( new DataBinding_( ""+this.hasColorTable, this.start + 9, 1));
-        bindings.push( new NilBinding( "<br />Color Table Size: "));
-        bindings.push( new DataBinding_( ""+this.ctableSize, this.start + 9, 1));
-        bindings.push( new NilBinding( "<br />Is Sorted: "));
-        bindings.push( new DataBinding_( ""+this.sorted, this.start + 9, 1));
-        bindings.push( new NilBinding( "<br />Interlaced: "));
-        bindings.push( new DataBinding_( ""+this.interlaced, this.start + 9, 1));
+        var comp = new UIComponents.ComplexUIC();
+
+        comp.addPiece("Offset: %D x %D <br />",
+            links.push(this.left)-1, links.push(this.top)-1);
+        comp.addPiece("Size: %D x %D <br />",
+            links.push(this.width)-1, links.push(this.height)-1);
+        comp.addPiece("Has Local Color Table: %D  (Size: %D) <br />",
+            links.push(this.hasColorTable)-1, links.push(this.ctableSize)-1);
+        comp.addPiece("Is Sorted: %D <br />", links.push(this.sorted)-1);
+        comp.addPiece("Is Interlaced: %D <br />", links.push(this.interlaced)-1);
+
+        uiComponents.push( comp);
 
         return {
             start : this.start,
             length : 10,
-            uiComponents : [],
-            links : [],
+            uiComponents : uiComponents,
+            links : links,
             color : "#bf983e",
             title : "Image Descriptor"
         };
@@ -310,16 +318,16 @@ class ImageData extends SegmentData {
     LZWMin : number;
     len : number;
     
-    constructor( reader : BinaryReader, start:number, context : GIFParser) {
+    constructor( reader : BinaryReaderLinker, start:number, context : GIFParser) {
         super( reader, start, context);
 
-        this.LZWMin = reader.readByte();
+        this.LZWMin = reader.readByte().getValue(reader.buffer);
 
-        var size = reader.readByte();
+        var size = reader.readByte().getValue(reader.buffer);
 
         while( size != 0) {
-            reader.readBytes(size);
-            size = reader.readByte();
+            reader.setSeek(reader.getSeek() + size);
+            size = reader.readByte().getValue(reader.buffer);
         }
 
         this.len = this.reader.getSeek() - this.start;
@@ -338,65 +346,83 @@ class ImageData extends SegmentData {
 
 class ColorTable extends SegmentData {
     size : number;
-    table : Uint32Array;
-    constructor( reader : BinaryReader, start:number, context : GIFParser, size : number) {
+    table : BinLinks.PackedNumberLink;
+    constructor( reader : BinaryReaderLinker, start:number, context : GIFParser, size : number) {
         super( reader, start, context);
         this.size = size;
-        this.table = new Uint32Array( this.size);
-
-        for( var i=0; i < this.size; ++i) {
-            this.table[i] = this.reader.readRGB();
-        }
-
+        this.table = this.reader.readPacked( this.size, 3, false);
     }
     
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
 
         var n = Math.ceil( Math.sqrt(this.size));
 
-        bindings.push( new NilBinding('<table class="colorTable">'));
+        var comp = new UIComponents.ComplexUIC();
+        comp.addPiece('<table class="colorTable">');
         for( var row=0; row < n; ++row) {
-            bindings.push( new NilBinding('<tr>'));
-            bindings.push( new NilBinding('<td>'+row*n+'-'+(row*n+n-1)+'</td>'));
+            comp.addPiece('<tr><td>'+row*n+'-'+(row*n-1)+'</td>');
             for( var col=0; col < n; ++col) {
                 var index = row*n + col;
-                if( index >= this.size)break;
-                var color = ParseColors.rgbToString(this.table[index]);
-                bindings.push( new CellBinding('<div class="colorBox" style="background-color:'+color+'"></div>', this.start + index*3, 3));
+                if( index >= this.size) break;
+
+                comp.addPiece('<td class="%c"><div class="colorBox" style="background-color:#%dh_6"></div></td>',
+                    links.push(this.table.subLink(index))-1);
             }
-            bindings.push( new NilBinding('</tr>'));
+            comp.addPiece('</tr>');
         }
-        bindings.push( new NilBinding('</table>'));
+        comp.addPiece('</table>');
+
+        uiComponents.push(comp);
 
         return {
             start: this.start,
             length : this.size * 3,
             color : ParseColors.palette,
-            uiComponents : [],
-            links : [],
+            uiComponents : uiComponents,
+            links : links,
             title : "Color Table"
         };
     }
 }
 
+class CTableDataLink extends DataLink {
+    base : DataLink;
+    constructor( base : DataLink) {
+        super();
+        this.base = base;
+    }
+    getValue(data : Uint8Array)  : any {
+        return 1 << (this.base.getValue(data) + 1);
+    }
+    getStartByte() : number { return this.base.getStartByte();}
+    getStartBitmask() : number { return this.base.getStartBitmask();}
+    getLength() : number { return this.base.getLength();}
+    getEndBitmask() : number { return this.base.getEndBitmask();}
+
+}
+
 class HeaderSegment extends SegmentData {
     bad = false;
     ver89a : boolean;
-    width : number;
-    height : number;
 
-    ctableSize : number;
-    sorted : boolean;
-    globalTable : boolean;
-    colorRes : number;
+    header : BinLinks.UTF8StrLink;
+    width : BinLinks.NumberLink;
+    height : BinLinks.NumberLink;
+    
+    ctableSize : DataLink;
+    sorted : SpecialLinks.BitLink;
+    globalTable : SpecialLinks.BitLink;
+    colorRes : DataLink;
 
-    bgColorIndex : number;
-    pixelAspectRatio : number;
-    constructor( reader : BinaryReader, start:number, context : GIFParser) {
+    bgColorIndex : BinLinks.NumberLink;
+    pixelAspectRatio : BinLinks.NumberLink;
+    constructor( reader : BinaryReaderLinker, start:number, context : GIFParser) {
         super( reader, start, context);
 
-        var header = this.reader.readUTF8StrLen(6);
+        this.header = this.reader.readUTF8StrLen(6);
+        var header = this.header.get(reader.buffer);
 
         if( header == "GIF87a") this.ver89a = false;
         else if( header == "GIF89a") this.ver89a = true;
@@ -405,45 +431,55 @@ class HeaderSegment extends SegmentData {
         this.width = this.reader.readUShortLE();
         this.height = this.reader.readUShortLE();
 
-        var packed = this.reader.readByte();
-        this.globalTable = (packed & 0x80) != 0;
-        this.colorRes = (packed >> 4) & 0x7;
-        this.sorted = (packed & 0x8) != 0;
-        this.ctableSize = (this.globalTable) ? 1 << ((packed & 0x7)+1) : 0;
+//        var packed = this.reader.readByte().get(reader.buffer);
+        var byte = this.reader.readByte();
+
+        this.globalTable = new SpecialLinks.BitLink( byte, 7);
+        this.colorRes = new SpecialLinks.PartialByteLink( byte, 4, 3);
+        this.sorted = new SpecialLinks.BitLink( byte, 3)
+        this.ctableSize = new CTableDataLink( new SpecialLinks.PartialByteLink(byte, 0, 3));
+
+//        this.globalTable = (packed & 0x80) != 0;
+//        this.colorRes = (packed >> 4) & 0x7;
+//        this.sorted = (packed & 0x8) != 0;
+//        this.ctableSize = (this.globalTable) ? 1 << ((packed & 0x7)+1) : 0;
 
         this.bgColorIndex = this.reader.readByte();
         this.pixelAspectRatio = this.reader.readByte();
     }
 
     constructSegment() : Segment {
-        var bindings : Binding[] = [];
+        var links : DataLink[] = [];
+        var uiComponents : UIComponent[] = [];
 
-        bindings.push( new NilBinding( "Signature/Version: "));
-        bindings.push( new DataBinding_((this.ver89a?"GIF89a":"GIF87a"), 0, 6));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Signature/Version: %D <br />", links.push( this.header)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Display Size: %D x %D <br />", 
+            links.push( this.width)-1,links.push( this.height)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Has Color Table: %D (size: %D) <br />", 
+            links.push( this.globalTable)-1,links.push( this.ctableSize)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Color Resolution of Source: %D <br />", links.push( this.colorRes)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Sorted: %D <br />", links.push( this.sorted)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Background Color Index: %D <br />", links.push( this.bgColorIndex)-1));
+        uiComponents.push( new UIComponents.SimpleUIC(
+            "Poxel Aspect Ration: %D <br />", links.push( this.pixelAspectRatio)-1));
+        
 
-        bindings.push( new NilBinding('<br />Display Size: '));
-        bindings.push( new DataBinding_(""+this.width, 6, 2));
-        bindings.push( new NilBinding(' x '));
-        bindings.push( new DataBinding_(""+this.height, 8, 2));
-        bindings.push( new NilBinding(' (Little Endian)<br />Color Table Size: '));
-        bindings.push( new DataBinding_(""+this.ctableSize, 10, 1));
-        bindings.push( new NilBinding(' 2<sup>(Smallest 3 bits + 1)</sup><br />Sorted: '));
-        bindings.push( new DataBinding_(""+this.sorted, 10, 1));
-        bindings.push( new NilBinding(' (4th smallest bit)<br />Color Resolution of Source: '));
-        bindings.push( new DataBinding_(""+this.colorRes, 10, 1));
-        bindings.push( new NilBinding(' (5th-7th smallest bit)<br />Has Global Table: '));
-        bindings.push( new DataBinding_(""+this.globalTable, 10, 1));
-        bindings.push( new NilBinding(' (largest bit)<br />BG Color Index: '));
-        var color = (this.context.globalTable) ? this.context.globalTable.table[this.bgColorIndex] : 0;
+/*        var color = (this.context.globalTable) ? this.context.globalTable.table[this.bgColorIndex] : 0;
         bindings.push( new DataBinding_(""+this.bgColorIndex + '<span class="colorBox" style="background-color:'+ParseColors.rgbToString(color)+'"></span>', 11, 1));
         bindings.push( new NilBinding('<br />Pixel Aspect Ratio: ' ));
-        bindings.push( new DataBinding_((this.pixelAspectRatio == 0)?"1:1":"nonzero value: I don't actually know what this means.", 12, 1));
+        bindings.push( new DataBinding_((this.pixelAspectRatio == 0)?"1:1":"nonzero value: I don't actually know what this means.", 12, 1));*/
 
         return {
             start: this.start,
             length: 13,
-            uiComponents : [],
-            links : [],
+            uiComponents : uiComponents,
+            links : links,
             color : ParseColors.header,
             title: "Header"
         };

@@ -245,9 +245,27 @@ export module SpecialLinks {
         }
         getValue(data : Uint8Array)  : any { return this.get(data);}
         getStartByte() : number { return this.base.getStartByte();}
-        getStartBitmask() : number { return this.base.getStartBitmask();}
+        getStartBitmask() : number { return ((1 << this.len) -1)<<this.offset;}
         getLength() : number { return this.base.getLength();}
-        getEndBitmask() : number { return this.base.getEndBitmask();}
+        getEndBitmask() : number { return this.getStartBitmask();}
+    }
+    export class BitLink extends DataLink {
+        base : BinLinks.ByteLink;
+        offset : number;
+        constructor( base : BinLinks.ByteLink, offset : number) {
+            super();
+            this.base = base;
+            this.offset = offset;
+        }
+        
+        get( data: Uint8Array) : boolean {
+            return ((this.base.get(data) >>> this.offset) & 0x1) != 0;
+        }
+        getValue(data : Uint8Array)  : any { return this.get(data);}
+        getStartByte() : number { return this.base.getStartByte();}
+        getStartBitmask() : number { return 1 << this.offset;}
+        getLength() : number { return this.base.getLength();}
+        getEndBitmask() : number { return 1 << this.offset;}
     }
     
     export class NullDataLink extends DataLink {

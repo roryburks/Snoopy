@@ -142,28 +142,18 @@ export module UIComponents {
 
                 this.comment = parseFormat( 
                     this.comment, context.links[this.links[i]], this.links[i], data);
-                
-//                this.comment.replace( '%d',
-//                    '<span class="db_' + this.links[i] + '">'+context.links[this.links[i]].getValue(data)+'</span>');
             }
             return this.comment;
         }
     }
 
     export class ComplexUIC implements UIComponent {
-        // TODO: It would probably be more intuitive and faster to bind links
-        //  to a certain piece and replace it mid-piece instead of once the entire
-        //  string is constructed
         pieces : string[] = [];
         links : number[][] = [];
         
         addPiece( piece : string, ...links: number[]) {
             this.pieces.push(piece);
             this.links.push(links);
-/*            if( links) {
-                for( var i=0; i < links.length; ++i)
-                    this.links.push( links[i]);
-            }*/
         }
         buildUI(context : Segment, data: Uint8Array) : string{
             var str = "";
@@ -177,7 +167,6 @@ export module UIComponents {
                             substr, context.links[this.links[i][j]], this.links[i][j], data);
                     }
                 }
-
                 str += substr;
             }
 
@@ -186,6 +175,8 @@ export module UIComponents {
     }
 
     /**
+     * Will parse the given string by replacing the following tokens
+     * with the following values determined by the data:
      * 
      * %c : data bind class for the corresponding index, i.e. db_i
      * %d : string version of the data
