@@ -1,7 +1,7 @@
 
 import {getFileExtension,Uint8ToString} from "../util";
 import {CanvasHexComponent} from "./canvashex";
-import {Parser, ParseStructure, Segment, Bound, CellBinding, SegmentNode} from "../parsers/parseStructure";
+import {Parser, ParseStructure, Segment, Bound, SegmentNode} from "../parsers/parseStructure";
 import {JPGParser} from "../parsers/parseJPG";
 import {PNGParser} from "../parsers/parsePNG";
 import {GIFParser} from "../parsers/parseGIF";

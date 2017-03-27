@@ -2,15 +2,14 @@ import {BinaryReader} from "../binaryReader";
 import {hexStr} from "../main";
 import {hexByteStr, Uint8ToString} from "../util";
 import {ParseStructure, Parser, Segment, SegmentNode} from "../parsers/parseStructure";
-import {Binding, DataBinding_, NilBinding, CellBinding,
-    UIComponents, UIComponent, DataLink} from "../parsers/parseStructure";
+import {UIComponents, UIComponent, DataLink} from "../parsers/parseStructure";
 import {ParseColors} from "./colors";
 import {BinaryReaderLinker, BinLinks, SpecialLinks} from "./binReaderLinker";
 
 class JPGParser extends Parser{
+    lread : BinaryReaderLinker;
     error : string = "";
     parsed : ParseStructure;
-    lread : BinaryReaderLinker;
 
     sos : SOSData;
 
@@ -194,12 +193,13 @@ class JPGParser extends Parser{
 export {JPGParser}
 
 function markerSegment(marker : number, start: number, len: number, descriptor:string) : Segment {
-    var bindings : Binding[] = [];
+    // TODO
+/*    var bindings : Binding[] = [];
 
     bindings.push( new NilBinding("Marker:"));
     bindings.push( new DataBinding_(""+hexByteStr(marker), start+1, 1));
     bindings.push( new NilBinding(" length:"));
-    bindings.push( new DataBinding_(""+len, start+2, 2));
+    bindings.push( new DataBinding_(""+len, start+2, 2));*/
 
     return {
         start: start, 
@@ -535,8 +535,6 @@ class HuffmanData extends SegmentBuilder {
         var links : DataLink[] = [];
         var uiComponents : UIComponent[] = [];
         var comp = new UIComponents.ComplexUIC();
-
-        var bindings : Binding[] = [];
 
         uiComponents.push( new UIComponents.SimpleUIC(
             "Huffman Table Destination: %D <br />",

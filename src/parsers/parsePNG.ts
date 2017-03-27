@@ -1,6 +1,6 @@
 import {BinaryReader} from "../binaryReader";
-import {ParseStructure, Parser, Segment, Binding, NilBinding, DataBinding_, 
-    CellBinding, SegmentNode, UIComponent, UIComponents, DataLink}
+import {ParseStructure, Parser, Segment, 
+    SegmentNode, UIComponent, UIComponents, DataLink}
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor,Uint8ToString} from "../util";
@@ -14,7 +14,7 @@ export class PNGParser extends Parser {
 
     parse() : ParseStructure {
         this.parsed = new ParseStructure();
-        this.lread = new BinaryReaderLinker( this.data);
+        this.lread = new BinaryReaderLinker(this.data);
 
         if( !this.parseHeader()) return null;
         while( !this.lread.eof()) this.parseChunk();

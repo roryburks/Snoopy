@@ -1,5 +1,5 @@
-import {ParseStructure, Parser, Segment, Binding, NilBinding,
-     DataBinding_, CellBinding, SegmentNode, UIComponents, UIComponent, DataLink}
+import {ParseStructure, Parser, Segment, 
+       SegmentNode, UIComponents, UIComponent, DataLink}
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor, Uint8ToString} from "../util";
@@ -7,10 +7,10 @@ import {BinaryReaderLinker, BinLinks, SpecialLinks} from "./binReaderLinker";
 
 export class GIFParser extends Parser {
     parsed : ParseStructure;
+    lread : BinaryReaderLinker;
 
     header : HeaderSegment;
     globalTable : ColorTable = null;
-    lread : BinaryReaderLinker;
     
     parse() : ParseStructure {
         this.parsed = new ParseStructure();
