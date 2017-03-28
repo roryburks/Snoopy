@@ -6,7 +6,7 @@ Currently supported File Formats:
 
 
 ## Notes about building:
-Snoopy is written in pure Javascript using only JQuery as an external library.  Any way that you can convert typescript code into javascript code SHOULD successfully convert the code into runnable JS code that just needs to be linked to a fairly recent version of JQuery (currently uses 2.1.4).
+Snoopy is written in pure Typescript using only JQuery as an external library.  Any way that you can convert typescript code into javascript code SHOULD successfully convert the code into runnable JS code that just needs to be linked to a fairly recent version of JQuery (currently uses 2.1.4).
 
 However if you want to make use of the provided gulp file and configuration, then install NPM, and following the steps explained in https://www.typescriptlang.org/docs/handbook/gulp.html install the following components into the project folder:
 
