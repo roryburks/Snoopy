@@ -327,6 +327,10 @@ tr{
     font-family:"Courier New", Courier, monospace;
 }
 
+.plaintext {
+    white-space: pre-wrap;
+}
+
 pre {
     padding: 0px;
     margin:0px;

@@ -17,6 +17,7 @@ export class CanvasHexComponent  {
     asciiField: HTMLCanvasElement;
     hexStage : HTMLCanvasElement;
     asciiStage : HTMLCanvasElement;
+    efScroll : HTMLElement;
 
     textDim : Dimension;
     bytesPerLine : number;
@@ -31,6 +32,7 @@ export class CanvasHexComponent  {
         this.asciiField = $("#asciiField").get(0) as HTMLCanvasElement;
         this.hexStage = $("#hexStaging").get(0) as HTMLCanvasElement;
         this.asciiStage = $("#asciiStaging").get(0) as HTMLCanvasElement;
+        this.efScroll = $("#efScroll").get(0);
 
         this.initBindings();
     }
@@ -51,6 +53,14 @@ export class CanvasHexComponent  {
                 me.stopImmediatePropagation();
             } catch(e) {}
         }
+        $(this.hexField).bind("touchstart",((evt : JQueryEventObject) : any => {
+            $(this.efScroll).trigger("touchstart", evt)}));
+        $(this.asciiField).bind("touchstart",((evt : JQueryEventObject) : any => {
+            $(this.efScroll).trigger("touchstart", evt)}));
+        $(this.hexField).bind("touchmove",((evt : JQueryEventObject) : any => {
+            $(this.efScroll).trigger("touchmove", evt)}));
+        $(this.asciiField).bind("touchmove",((evt : JQueryEventObject) : any => {
+            $(this.efScroll).trigger("touchmove", evt)}));
 
         $(this.hexField).bind("wheel",f);
         $(this.asciiField).bind("wheel",f);

@@ -84,12 +84,12 @@ function appendChunkHeaders(
 {
     var cLen = new BinLinks.UIntLink(start);
     var cHead = new BinLinks.UTF8StrLink(start+4,4, false);
-    var cSum = new BinLinks.BytesLink(start+len-4, 4);
+    var cSum = new BinLinks.UIntLink(start+len-4);
     uiComponents.unshift( new UIComponents.SimpleUIC(
         '<span class="chunkDesc">Segment Header: %D Length: %D</span><br />',
-        links.push(cLen)-1, links.push(cHead)-1));
+        links.push(cHead)-1, links.push(cLen)-1));
     uiComponents.push( new UIComponents.SimpleUIC(
-        '<span class="chunkDesc"><br />Data Checksum: %Dh</span>',
+        '<span class="chunkDesc"><br />Data Checksum: %Dh_8</span>',
         links.push( cSum)-1));
 }
 

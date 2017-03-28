@@ -5,6 +5,7 @@ import {Parser, ParseStructure, Segment, Bound, SegmentNode} from "../parsers/pa
 import {JPGParser} from "../parsers/parseJPG";
 import {PNGParser} from "../parsers/parsePNG";
 import {GIFParser} from "../parsers/parseGIF";
+import {TXTParser} from "../parsers/parseTXT";
 import {Queue} from "../util";
 import {TreeManager} from "./treemanager";
 
@@ -223,6 +224,7 @@ function getParserFromExtension( ext : string, buffer : Uint8Array) {
         case "jpg": case "jpeg": return new JPGParser(buffer);
         case "png": return new PNGParser(buffer) ;
         case "gif": return new GIFParser(buffer) ;
+        case "txt": return new TXTParser(buffer);
         default: return null;
     }
 }
