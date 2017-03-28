@@ -4,6 +4,8 @@ import {hexByteStr, Uint8ToString} from "../util";
 import {BinaryReaderLinker, BinLinks, SpecialLinks} from "./binReaderLinker";
 import {ParseStructure, Parser, Segment, SegmentNode, UIComponent, UIComponents, DataLink}
      from "./parseStructure";
+
+     
 export class TXTParser extends Parser {
     parsed : ParseStructure;
     lread : BinaryReaderLinker;

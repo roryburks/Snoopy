@@ -39,7 +39,7 @@ export class CanvasHexComponent  {
 
     private initBindings() {
         // Bind input in the not-actually-moving hex and ascii fields into the scrollBar
-        var f = (evt : JQueryEventObject) : any => {
+/*        var f = (evt : JQueryEventObject) : any => {
             var me = (evt.originalEvent as WheelEvent)
             var amt = me.wheelDelta || 
                 -me.deltaY * 30;
@@ -63,7 +63,7 @@ export class CanvasHexComponent  {
             $(this.efScroll).trigger("touchmove", evt)}));
 
         $(this.hexField).bind("wheel",f);
-        $(this.asciiField).bind("wheel",f);
+        $(this.asciiField).bind("wheel",f);*/
 
         $(this.hexField).mousedown(((evt : JQueryEventObject) : any => {
             this.startDrag( evt.originalEvent as MouseEvent, true);
@@ -474,6 +474,8 @@ export class CanvasHexComponent  {
         this.redraw();
     }
 
+    // =======================
+    // ==== Externally-Accessed Methods
     highlighted : Bound;
     setHighlighted( bound : Bound) {
         this.highlighted = bound;
@@ -489,5 +491,42 @@ export class CanvasHexComponent  {
     public scrollTo( index : number) {
         var dim = this.textDim;
         this.context.scrollBar.scrollTop = Math.floor(index / this.bytesPerLine) * dim.height;
+    }
+
+    public mdown( evt : MouseEvent ){
+        var rect = this.hexField.getBoundingClientRect();
+
+        if( !(evt.pageX < rect.left || evt.pageY < rect.top ||
+            evt.pageX > rect.right || evt.pageY > rect.bottom)) 
+        {
+            this.startDrag( evt, true);
+        }
+        var rect = this.asciiField.getBoundingClientRect();
+        if( !(evt.pageX < rect.left || evt.pageY < rect.top ||
+            evt.pageX > rect.right || evt.pageY > rect.bottom)) 
+        {
+            this.startDrag( evt, false);
+        }
+
+    }
+    public mmove( evt : MouseEvent) {
+        var rect = this.hexField.getBoundingClientRect();
+
+        if( !(evt.pageX < rect.left || evt.pageY < rect.top ||
+            evt.pageX > rect.right || evt.pageY > rect.bottom)) 
+        {
+            this.continueDrag( evt, true);
+        }
+        var rect = this.asciiField.getBoundingClientRect();
+        if( !(evt.pageX < rect.left || evt.pageY < rect.top ||
+            evt.pageX > rect.right || evt.pageY > rect.bottom)) 
+        {
+            this.continueDrag( evt, false);
+        }
+
+    }
+    public mup(evt : MouseEvent) {
+        console.log("mup");
+        this.endDrag( evt, true);
     }
 }

@@ -16,6 +16,7 @@ export class UIManager {
     segmentContent : HTMLDivElement;
     segmentTitle : HTMLElement;
     binfield : HTMLElement;
+    hexContainer : HTMLElement;
 
     parsed : ParseStructure;
     segments : Segment[];
@@ -35,6 +36,7 @@ export class UIManager {
         this.segmentContent = $("#segmentContent").get(0) as HTMLDivElement;
         this.segmentTitle = $("#segmentTitle").get(0);
         this.binfield = $("#segmentBin").get(0);
+        this.hexContainer = $("#efsContainer").get(0) ;
 
 
         this.initComponents();
@@ -55,6 +57,12 @@ export class UIManager {
             if( this.hexComponent)
                 this.hexComponent.updateData();
         }
+        this.hexContainer.onmousedown = (evt : MouseEvent) => 
+            {this.hexComponent.mdown(evt);}
+        this.hexContainer.onmousemove = (evt : MouseEvent) => 
+            {this.hexComponent.mmove(evt);}
+        this.hexContainer.onmouseup = (evt : MouseEvent) => 
+            {this.hexComponent.mup(evt);}
     }
 
     assosciateData( data : Uint8Array, filename : string) {
