@@ -3,7 +3,7 @@ import {ParseStructure, Parser, Segment,
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor, Uint8ToString} from "../util";
-import {BinaryReaderLinker, BinLinks, SpecialLinks, MakeEditable} from "./binReaderLinker";
+import {BinaryReaderLinker, BinLinks, SpecialLinks, ValueUIComponents} from "./binReaderLinker";
 
 export class GIFParser extends Parser {
     parsed : ParseStructure;
@@ -233,6 +233,11 @@ class GraphicsControlSegment extends SegmentData {
             },"Unknown disposal method.");
         this.delay = new SpecialLinks.FactorLink(reader.readUShortLE(), 100);
         this.transIndex = reader.readByte();
+
+
+        // Add UI Components to editable Values
+        this.transparent.editable = this.userInput.editable = this.disposal.editable = 
+            this.delay.editable = this.transIndex.editable = true;
     }
     constructSegment() : Segment {
         var links : DataLink[] = [];
@@ -288,6 +293,8 @@ class ImageDescriptor extends SegmentData {
         this.interlaced = new SpecialLinks.BitLink(packed, 6);
         this.sorted = new SpecialLinks.BitLink(packed, 5);
         this.ctableSize = new CTableDataLink( new SpecialLinks.PartialByteLink(packed, 0, 4));
+
+        this.left.editable = this.top.editable = true;
     }
     constructSegment() : Segment {
         var links : DataLink[] = [];
@@ -366,12 +373,15 @@ class ColorTable extends SegmentData {
         var comp = new UIComponents.ComplexUIC();
         comp.addPiece('<table class="colorTable">');
         for( var row=0; row < n; ++row) {
-            comp.addPiece('<tr><td>'+row*n+'-'+(row*n-1)+'</td>');
+            comp.addPiece('<tr><td>'+row*n+':'+(row*(n+1)-1)+'</td>');
             for( var col=0; col < n; ++col) {
                 var index = row*n + col;
                 if( index >= this.size) break;
 
-                var subLink = new MakeEditable.ColorPickerLink( this.table.subLink(index));
+
+                var subLink = this.table.subLink(index);
+                subLink.uiComp = ValueUIComponents.getColorPickerUI();
+                subLink.editable = true;
                 comp.addPiece('<td class="%c"><div class="colorBox" style="background-color:#%dh_6"></div></td>',
                     links.push(subLink)-1);
             }
@@ -436,7 +446,6 @@ class HeaderSegment extends SegmentData {
         this.width = this.reader.readUShortLE();
         this.height = this.reader.readUShortLE();
 
-//        var packed = this.reader.readByte().get(reader.buffer);
         var byte = this.reader.readByte();
 
         this.globalTable = new SpecialLinks.BitLink( byte, 7);
@@ -444,13 +453,13 @@ class HeaderSegment extends SegmentData {
         this.sorted = new SpecialLinks.BitLink( byte, 3)
         this.ctableSize = new CTableDataLink( new SpecialLinks.PartialByteLink(byte, 0, 3));
 
-//        this.globalTable = (packed & 0x80) != 0;
-//        this.colorRes = (packed >> 4) & 0x7;
-//        this.sorted = (packed & 0x8) != 0;
-//        this.ctableSize = (this.globalTable) ? 1 << ((packed & 0x7)+1) : 0;
-
         this.bgColorIndex = this.reader.readByte();
         this.pixelAspectRatio = this.reader.readByte();
+
+        // Add UI Components to editable values;
+        this.width.editable = this.height.editable =  this.bgColorIndex.editable = true;
+        this.bgColorIndex.uiComp = new ValueUIComponents.NumberEditorVUIC(0,this.ctableSize.getValue(this.reader.buffer));
+        this.sorted.editable = true;
     }
 
     constructSegment() : Segment {

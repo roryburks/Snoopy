@@ -84,9 +84,9 @@ export abstract class DataLink {
     abstract getStartBitmask() : number;
     abstract getLength() : number;
     abstract getEndBitmask() : number;
-    isEditable() : boolean {return false;}
     changeValue( data : Uint8Array, val : any) : void{}
-    getUIComp() : ValueUIComponent {return null;}
+    editable : boolean = false;
+    uiComp : ValueUIComponent = null;
     getBound() : Bound {
         return {
             start: this.getStartByte(),
@@ -116,10 +116,10 @@ export module UIComponents {
 
             for( var i=0; i < this.links.length; ++i) {
 
-                this.comment = parseFormat( 
-                    this.comment, context.links[this.links[i]], this.links[i], data);
+                str = parseFormat( 
+                    str, context.links[this.links[i]], this.links[i], data);
             }
-            return this.comment;
+            return str;
         }
     }
 
@@ -198,6 +198,7 @@ export module UIComponents {
             if( wrap) {
                 replace_str = '<span class="db_'+index+'">' + replace_str + '</span>';
             }
+            
             ret = ret.substr(0,  dloc) + replace_str + ret.substr(dloc+len_to_replace);
         }
 

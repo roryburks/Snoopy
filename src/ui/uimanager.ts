@@ -25,6 +25,7 @@ export class UIManager {
     valueButton : HTMLButtonElement;
     valueContent : HTMLElement;
     valueAuto : HTMLElement;
+    valueButtonTTT : HTMLElement;
 
     parsed : ParseStructure;
     segments : Segment[];
@@ -51,6 +52,7 @@ export class UIManager {
         this.valueButton = $("#valueCommit").get(0) as HTMLButtonElement;
         this.valueContent = $("#valueContent").get(0);
         this.valueAuto = $("#valueAuto").get(0);
+        this.valueButtonTTT = $("#valButCont").find(".ttt").get(0);
 
 
         this.initComponents();
@@ -207,18 +209,20 @@ export class UIManager {
         this.hexComponent.setSelected( bound );
 
         // Update the ValueField
-        this.valueButton.disabled = !link.isEditable();
+        this.valueButton.disabled = !link.editable;
         $(this.valueAuto).empty();
         $(this.valueContent).empty();
+        this.valueButton.onclick = null;
 
-        if( link.isEditable()) {
-
-            var vuic = link.getUIComp();
+        if( link.editable) {
+            // Load up the Value UI Component
+            var vuic = link.uiComp;
             if( vuic != null) {
                 var ele =  vuic.buildUI();
                 $(this.valueContent).append(ele);
                 vuic.updateUI(link.getValue(this.data));
                 
+                // Bind everthing together
                 this.valueButton.onclick = (evt : MouseEvent) :any => {
                     link.changeValue(this.data, vuic.getUIValue());
                     this.setBoundSegment(this.boundSegment,false, true);
@@ -226,6 +230,11 @@ export class UIManager {
                 } ;
             }
         }
+
+        if( this.valueButton.onclick == null )
+            $(this.valueButtonTTT).css("display","block");
+        else 
+            $(this.valueButtonTTT).css("display","none");
     }
 
     // =====================

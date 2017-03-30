@@ -33,21 +33,38 @@ export module BinLinks {
         get( data : Uint8Array) : number {
             return data[this.seek];
         }
+        
+        changeValue( data : Uint8Array, val : any) : void{
+            var n = val as number;
+            data[this.seek] =n & 0xFF;
+        }
         getStartByte() : number {return this.seek;}
         getLength() : number {return 1;}
+        uiComp : ValueUIComponent = ValueUIComponents.getByteNE();
     }
     export class UShortLink extends NumberLink {
         get( data : Uint8Array) : number {
             return data[this.seek] << 8 |
                 data[this.seek+1];
         }
+        changeValue( data : Uint8Array, val : any) : void{
+            var n = val as number;
+            data[this.seek] = (n>>>8) & 0xFF;
+            data[this.seek+1] =n & 0xFF;
+        }
         getStartByte() : number {return this.seek;}
         getLength() : number {return 2;}
+        uiComp : ValueUIComponent = ValueUIComponents.getUShortNE();
     }
     export class UShortLELink extends UShortLink {
         get( data : Uint8Array) : number {
             return data[this.seek+1] << 8 |
                 data[this.seek];
+        }
+        changeValue( data : Uint8Array, val : any) : void{
+            var n = val as number;
+            data[this.seek+1] = (n>>>8) & 0xFF;
+            data[this.seek] =n & 0xFF;
         }
     }
     export class RGBLink extends NumberLink {
@@ -59,8 +76,15 @@ export module BinLinks {
                 data[this.seek+1] << 8 |
                 data[this.seek+2]) >>> 0;
         }
+        changeValue( data : Uint8Array, val : any) : void{
+            var n = val as number;
+            data[this.seek] = (n>>>16) & 0xFF;
+            data[this.seek+1] = (n>>>8) & 0xFF;
+            data[this.seek+2] =n & 0xFF;
+        }
         getStartByte() : number {return this.seek;}
         getLength() : number {return 3;}
+        uiComp : ValueUIComponent = ValueUIComponents.getColorPickerUI();
     }
     export class UIntLink extends NumberLink {
         get( data : Uint8Array) : number {
@@ -69,8 +93,16 @@ export module BinLinks {
                 data[this.seek+2] << 8 |
                 data[this.seek+3]) >>> 0;
         }
+        changeValue( data : Uint8Array, val : any) : void{
+            var n = val as number;
+            data[this.seek] = (n>>>24) & 0xFF;
+            data[this.seek+1] = (n>>>16) & 0xFF;
+            data[this.seek+2] = (n>>>8) & 0xFF;
+            data[this.seek+3] =n & 0xFF;
+        }
         getStartByte() : number {return this.seek;}
         getLength() : number {return 4;}
+        uiComp : ValueUIComponent = ValueUIComponents.getUIntNE();
     }
     export class BytesLink extends BaseBinLink {
         length : number;
@@ -200,16 +232,9 @@ class WrapLink extends DataLink {
     getEndBitmask() : number {return this.base.getEndBitmask();}
     changeValue( data : Uint8Array, val : any) : void{ this.base.changeValue(data, val);}
 }
-export module MakeEditable {
-
-    export class ColorPickerLink extends WrapLink
-    {
-        isEditable() : boolean {return true;}
-        getUIComp() : ValueUIComponent {
-            return new CPVUIC();
-        }
-    }
-    class CPVUIC implements ValueUIComponent
+export module ValueUIComponents {
+    
+    class ColorPickerVUIC implements ValueUIComponent
     {
         colorPicker : HTMLInputElement;
         buildUI() : HTMLElement {
@@ -227,6 +252,109 @@ export module MakeEditable {
             return parseInt(($(this.colorPicker).val() as string).substr(1), 16);
         }
     }
+    var defColPick = new ColorPickerVUIC();
+    export function getColorPickerUI() : ColorPickerVUIC {return defColPick;}
+    
+    class BoolVUIC implements ValueUIComponent
+    {
+        checker : HTMLInputElement;
+        buildUI() : HTMLElement {
+            var ele = document.createElement('div');
+            ele.innerHTML = '<input type="checkbox"></input>';
+            this.checker = $(ele).find("input").get(0) as HTMLInputElement;
+            return ele;
+        }
+        updateUI(value:any) {
+            this.checker.checked = !!value;
+        }
+        getUIValue() :any {
+            
+            return this.checker.checked;
+        }
+    }
+    var defBoolUIC = new BoolVUIC();
+    export function getBoolUI() : BoolVUIC {return defBoolUIC;}
+
+    // ==================
+    // ==== Plain Number Editors
+    export class NumberEditorVUIC implements ValueUIComponent
+    {
+        editor : HTMLInputElement;
+        min : number;
+        max: number;
+        constructor( min: number, max: number) {
+            this.max = max;
+            this.min = min;
+        }
+        buildUI() : HTMLElement {
+            var ele = document.createElement('div');
+            ele.innerHTML = '<input type="number" min="'+this.min+'" max="'+this.max+'">'
+            this.editor = $(ele).find("input").get(0) as HTMLInputElement;
+            return ele;
+        }
+        updateUI(value:any) {
+            console.log(value);
+            this.editor.value = value;
+        }
+        getUIValue() :any {
+            return this.editor.value;
+        }
+    }
+    var partialNE : NumberEditorVUIC[] = new Array(8);
+    for( var i=0; i<8; ++i) {
+        partialNE[i] = new NumberEditorVUIC(0, (1 << i)-1);
+    }
+    var byteNE = new NumberEditorVUIC(0, 255);
+    var ushortNE = new NumberEditorVUIC(0, 65535);
+    var uintNE = new NumberEditorVUIC(0, 4294967295);
+    export function getPartialNE( i : number) : NumberEditorVUIC {return partialNE[i];}
+    export function getByteNE() : NumberEditorVUIC {return byteNE;}
+    export function getUShortNE() : NumberEditorVUIC {return ushortNE;}
+    export function getUIntNE() : NumberEditorVUIC {return uintNE;}
+
+    // =================
+    // ==== Special UI ValueUIComponents
+    export class EnumVUIC implements ValueUIComponent
+    {
+        option : HTMLSelectElement;
+        map : {[key:string]:string};
+        constructor( map : {[key:string]:string}){
+            this.map = map;
+        } 
+        buildUI() : HTMLElement {
+            var ele = document.createElement('div');
+
+            var str = '<select>';
+            for( var key in this.map) {
+                str += '<option value="'+key+'">'+this.map[key]+'</option>';
+            }
+            str += '</select>'
+            ele.innerHTML = str;
+            this.option = $(ele).find("select").get(0) as HTMLSelectElement;
+            return ele;
+        }
+        updateUI(value:any) : void {
+            var i =0;
+            for( var key in this.map) {
+                if( key == value) {
+                    this.option.selectedIndex = i;
+                }
+                ++i;
+            }
+        }
+        getUIValue() : any {
+            var i =0;
+            for( var key in this.map) {
+                if( i ==  this.option.selectedIndex) {
+                    return key;
+                }
+                ++i;
+            }
+            return undefined;
+        }
+    }
+    
+//        
 }
 
 /**
@@ -245,6 +373,8 @@ export module SpecialLinks {
             this.base = base;
             this.map = map;
             this.def = def;
+
+            this.uiComp = new ValueUIComponents.EnumVUIC(this.map);
         }
 
         getValue(data : Uint8Array)  : string {
@@ -276,11 +406,15 @@ export module SpecialLinks {
         get( data: Uint8Array) : number {
             return this.base.get(data) / this.factor;
         }
+        changeValue( data : Uint8Array, val : any) : void{
+            this.base.changeValue(data, val*this.factor);
+        }
         getValue(data : Uint8Array)  : any { return this.get(data);}
         getStartByte() : number { return this.base.getStartByte();}
         getStartBitmask() : number { return this.base.getStartBitmask();}
         getLength() : number { return this.base.getLength();}
         getEndBitmask() : number { return this.base.getEndBitmask();}
+        uiComp = ValueUIComponents.getUIntNE();
     }
 
     /** A PartialByteLink is a type of link designed for data which is packed in 
@@ -295,10 +429,17 @@ export module SpecialLinks {
             this.base = base;
             this.offset = offset;
             this.len = len;
+            this.uiComp = ValueUIComponents.getPartialNE(len);
         }
         
         get( data: Uint8Array) : number {
             return (this.base.get(data) >>> this.offset) & ((1 << this.len) - 1);
+        }
+        changeValue( data : Uint8Array, val : any) : void{
+            var bitmask = ((1 << this.len) - 1) << this.offset;
+            var demaskedByte = this.base.getValue(data) & (~bitmask);
+            var maskedVal = (val & ((1 << this.len)-1)) << this.offset;
+            this.base.changeValue( data, maskedVal | demaskedByte );
         }
         getValue(data : Uint8Array)  : any { return this.get(data);}
         getStartByte() : number { return this.base.getStartByte();}
@@ -318,11 +459,17 @@ export module SpecialLinks {
         get( data: Uint8Array) : boolean {
             return ((this.base.get(data) >>> this.offset) & 0x1) != 0;
         }
+        changeValue( data : Uint8Array, val : any) : void{
+            var demaskedByte = this.base.getValue(data) & (~(1 << this.offset));
+            var maskedVal = (val)? (1 << this.offset) : 0;
+            this.base.changeValue( data, maskedVal | demaskedByte );
+        }
         getValue(data : Uint8Array)  : any { return this.get(data);}
         getStartByte() : number { return this.base.getStartByte();}
         getStartBitmask() : number { return 1 << this.offset;}
         getLength() : number { return this.base.getLength();}
         getEndBitmask() : number { return 1 << this.offset;}
+        uiComp : ValueUIComponent = ValueUIComponents.getBoolUI();
     }
     
     export class NullDataLink extends DataLink {
@@ -341,6 +488,8 @@ export module SpecialLinks {
         getEndBitmask() : number {return 0xFF;}
     }
 }
+
+
 
 export class BinaryReaderLinker {
     buffer : Uint8Array;
