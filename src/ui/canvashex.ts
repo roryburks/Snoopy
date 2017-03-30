@@ -38,33 +38,6 @@ export class CanvasHexComponent  {
     }
 
     private initBindings() {
-        // Bind input in the not-actually-moving hex and ascii fields into the scrollBar
-/*        var f = (evt : JQueryEventObject) : any => {
-            var me = (evt.originalEvent as WheelEvent)
-            var amt = me.wheelDelta || 
-                -me.deltaY * 30;
-
-            this.context.scrollBar.scrollTop -= amt;
-            try {
-                evt.stopPropagation();
-                evt.preventDefault();
-                me.preventDefault();
-                me.stopPropagation();
-                me.stopImmediatePropagation();
-            } catch(e) {}
-        }
-        $(this.hexField).bind("touchstart",((evt : JQueryEventObject) : any => {
-            $(this.efScroll).trigger("touchstart", evt)}));
-        $(this.asciiField).bind("touchstart",((evt : JQueryEventObject) : any => {
-            $(this.efScroll).trigger("touchstart", evt)}));
-        $(this.hexField).bind("touchmove",((evt : JQueryEventObject) : any => {
-            $(this.efScroll).trigger("touchmove", evt)}));
-        $(this.asciiField).bind("touchmove",((evt : JQueryEventObject) : any => {
-            $(this.efScroll).trigger("touchmove", evt)}));
-
-        $(this.hexField).bind("wheel",f);
-        $(this.asciiField).bind("wheel",f);*/
-
         $(this.hexField).mousedown(((evt : JQueryEventObject) : any => {
             this.startDrag( evt.originalEvent as MouseEvent, true);
         }).bind(this));
@@ -311,17 +284,17 @@ export class CanvasHexComponent  {
             }
             this.drawBorder( bound, color, 2);
         }
+        if( this.highlighted) {
+            // Highlighted
+            var color = "rgba( 0, 0, 0, 0.75)"
+            this.drawBorder( this.highlighted, color, 2);
+        }
         if( this.selected) {
             // Selected
             var color = "rgb( 255, 255, 255)"
             for( var i=0; i<this.selected.length; ++i) {
                 this.drawBorder( this.selected[i], color, 2);
             }
-        }
-        if( this.highlighted) {
-            // Highlighted
-            var color = "rgb( 0, 0, 0)"
-            this.drawBorder( this.highlighted, color, 2);
         }
     }
     
@@ -479,6 +452,10 @@ export class CanvasHexComponent  {
     highlighted : Bound;
     setHighlighted( bound : Bound) {
         this.highlighted = bound;
+        this.redraw();
+    }
+    setSelected( bound : Bound) {
+        this.selected = [bound];
         this.redraw();
     }
 

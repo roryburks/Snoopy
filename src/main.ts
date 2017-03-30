@@ -58,3 +58,22 @@ function asciiStr( uint : number) : string {
     return " ";
 };
 export {asciiStr};
+
+
+/** ===== DEBUG TESTING ==== */
+
+
+// Dynamic typing at its "finest"
+class A {
+    num : number;
+    disp() { console.log(this.num);}
+}
+class B {
+    num : number;
+    disp() { console.log(this.num*2);}
+}
+
+var a: A = new A();
+a.num = 1;
+a.disp = B.prototype.disp;
+a.disp();

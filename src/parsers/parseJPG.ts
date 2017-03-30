@@ -32,7 +32,11 @@ class JPGParser extends Parser{
 
         while( this.parseSegment()) {}
 
-        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.data)) + '" />';
+        this.parsed.visualComp = {
+            buildUI : function(data : Uint8Array) : string {
+                return '<img src="data:image/*;base64,' + btoa(Uint8ToString(data)) + '" />';
+            }
+        }
         return this.parsed;
     }
     private parseHeader() : boolean {

@@ -16,7 +16,15 @@ export class UIManager {
     segmentContent : HTMLDivElement;
     segmentTitle : HTMLElement;
     binfield : HTMLElement;
+
+    btnRefresh : HTMLElement;
+
     hexContainer : HTMLElement;
+    visualField : HTMLElement;
+
+    valueButton : HTMLButtonElement;
+    valueContent : HTMLElement;
+    valueAuto : HTMLElement;
 
     parsed : ParseStructure;
     segments : Segment[];
@@ -37,6 +45,12 @@ export class UIManager {
         this.segmentTitle = $("#segmentTitle").get(0);
         this.binfield = $("#segmentBin").get(0);
         this.hexContainer = $("#efsContainer").get(0) ;
+        this.btnRefresh = $("#btnRefresh").get(0);
+
+        this.visualField = $("visualField").get(0);
+        this.valueButton = $("#valueCommit").get(0) as HTMLButtonElement;
+        this.valueContent = $("#valueContent").get(0);
+        this.valueAuto = $("#valueAuto").get(0);
 
 
         this.initComponents();
@@ -63,6 +77,8 @@ export class UIManager {
             {this.hexComponent.mmove(evt);}
         this.hexContainer.onmouseup = (evt : MouseEvent) => 
             {this.hexComponent.mup(evt);}
+        this.btnRefresh.onclick = (evt : MouseEvent) =>
+            {$("#visualField").html( this.parsed.visualComp.buildUI(this.data) );}
     }
 
     assosciateData( data : Uint8Array, filename : string) {
@@ -76,7 +92,7 @@ export class UIManager {
 
         $("#visualField").empty();
         if( this.parsed) {
-            $("#visualField").html( this.parsed.visualHTML );
+            $("#visualField").html( this.parsed.visualComp.buildUI(this.data) );
             this.treeManager.constructTree();
             this.segments = this.parsed.segmentTree.getRoot().getAll();
         }
@@ -91,9 +107,15 @@ export class UIManager {
 
 
     boundSegment : Segment;
-    setBoundSegment( seg : Segment, scrollto?: boolean) {
+    /** Sets the bound segment (i.e. the segment that is shown in the segment field)
+     * to the given segment.
+     * 
+     * scrollto: whether or not to scroll to the selected segment
+     * force: if true, will re-build the segment even if it's currently selected.
+     */
+    setBoundSegment( seg : Segment, scrollto?: boolean, force?:boolean) {
         // Set the bound segment internally
-        if( this.boundSegment == seg) return;
+        if( this.boundSegment == seg && !force) return;
         this.boundSegment = seg;
         this.hexComponent.setSegment(seg);
 
@@ -117,7 +139,7 @@ export class UIManager {
             for( let i=0; i<seg.links.length; ++i) {
                 var ele = $(".db_"+i);
                 ele.click( ((evt: JQueryEventObject): any => {
-                    this.bindingHighlighted(i);
+                    this.bindingClicked(i);
                 }).bind(this));
                 ele.mouseover( ((evt: JQueryEventObject): any => {
                     this.bindingHighlighted(i);
@@ -137,7 +159,7 @@ export class UIManager {
         }
     }
 
-    /** Called when the user clicks or mouses over on one of the bound elements
+    /** Called when the user mouses over on one of the bound elements
      *  inside the Segment area.
      */
     private bindingHighlighted( index : number) {
@@ -168,6 +190,49 @@ export class UIManager {
         this.binfield.innerHTML = inner;
     }
 
+    /** Called when the user clicks on one of the bound elements, displays the
+     * element in the Value Field. */
+    private bindingClicked( index : number) {
+        if( !this.boundSegment || index < 0 || !this.boundSegment.links 
+            || this.boundSegment.links.length <= index) 
+            return;
+        
+        var link = this.boundSegment.links[index];
+
+        // Higlight the area of the DataLink
+        var bound : Bound = {
+            start : link.getStartByte(),
+            len : link.getLength()
+        };
+        this.hexComponent.setSelected( bound );
+
+        // Update the ValueField
+        this.valueButton.disabled = !link.isEditable();
+        $(this.valueAuto).empty();
+        $(this.valueContent).empty();
+
+        if( link.isEditable()) {
+
+            var vuic = link.getUIComp();
+            if( vuic != null) {
+                var ele =  vuic.buildUI();
+                $(this.valueContent).append(ele);
+                vuic.updateUI(link.getValue(this.data));
+                
+                this.valueButton.onclick = (evt : MouseEvent) :any => {
+                    link.changeValue(this.data, vuic.getUIValue());
+                    this.setBoundSegment(this.boundSegment,false, true);
+                    this.hexComponent.updateData();
+                } ;
+            }
+        }
+    }
+
+    // =====================
+    // ==== HTML Construction Methods
+
+    /** Constructs and HTML string representing a byte's binary value with
+     * the bits from the bitmask highlighted. */
     private highlightedByte( byte : number, bitmask : number) : string {
         var str = byte.toString(2);
         while( str.length < 8) str = "0"+str;

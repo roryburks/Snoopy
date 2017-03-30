@@ -15,12 +15,17 @@ export class TXTParser extends Parser {
         this.parsed = new ParseStructure();
         this.lread = new BinaryReaderLinker(this.data);
 
-        var str = "";
-        for( var i=0; i < this.data.length; ++i) {
-            str += String.fromCharCode( this.data[i]);
-        }
 
-        this.parsed.visualHTML = '<div class="plaintext">'+str+'</div>';
+        this.parsed.visualComp = {
+            buildUI : function(data : Uint8Array) : string {
+                        
+                var str = "";
+                for( var i=0; i < this.data.length; ++i) {
+                    str += String.fromCharCode( this.data[i]);
+                }
+                return '<div class="plaintext">'+str+'</div>';
+            }
+        }
 
         return this.parsed;
     }

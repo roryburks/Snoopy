@@ -17,7 +17,10 @@ export abstract class Parser {
 }
 export class ParseStructure {
     segmentTree : SegmentTree = new SegmentTree();
-    visualHTML : string;
+    visualComp : VisualUIComp;
+}
+export abstract class VisualUIComp {
+    abstract buildUI(data : Uint8Array) : string;
 }
 
 /** The SegmentTree is a Simple Tree Structure storing all the Segments. */
@@ -81,6 +84,9 @@ export abstract class DataLink {
     abstract getStartBitmask() : number;
     abstract getLength() : number;
     abstract getEndBitmask() : number;
+    isEditable() : boolean {return false;}
+    changeValue( data : Uint8Array, val : any) : void{}
+    getUIComp() : ValueUIComponent {return null;}
     getBound() : Bound {
         return {
             start: this.getStartByte(),
@@ -88,40 +94,13 @@ export abstract class DataLink {
         }
     }
 }
-export interface DynamicDataLink extends DataLink {
-    changeValue( data : Uint8Array, val : string) : void;
+export interface ValueUIComponent {
+    buildUI() : HTMLElement;
+    updateUI(value:any) : void;
+    getUIValue() : any;
 }
-export module LinkTypes {
-    export class BoolBitLink extends DataLink {
-        offset: number;
-        seek : number;
-        constructor( reader : BinaryReader, offset : number) {
-            super();
-            this.seek = reader.getSeek();
-            this.offset = offset;
-        }
-        getValue(data : Uint8Array) : any { 
-            return (((data[this.seek] >>> this.offset)&1) != 0);
-        }
-        getStartByte() : number {return this.seek;}
-        getStartBitmask() : number {return (1 << this.offset);}
-        getLength() : number {return 1;}
-        getEndBitmask() : number  {return (1 << this.offset);}
-    }
-    export class PartialByteLink extends DataLink {
-        offset: number;
-        size : number;
-        seek : number;
-        
-        getValue(data : Uint8Array)  : any {
-            return ((data[this.seek] >>> this.offset)&((1 << this.size)-1));
-        }
-        getStartByte() : number {return this.seek;}
-        getStartBitmask() : number {return ((1 << this.size) - 1) << this.offset;}
-        getLength() : number {return 1;}
-        getEndBitmask() : number {return ((1 << this.size) - 1) << this.offset;}
-    }
-}
+
+
 export module UIComponents {
     export class SimpleUIC implements UIComponent {
         comment : string;

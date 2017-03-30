@@ -231,6 +231,13 @@ body {
     background-color: #DDDDDD;
 }
 
+#valueCommit:enabled {
+    background-color: #DDDDDD;
+}
+#valueCommit:disabled {
+    background-color: #555555;
+}
+
 
 
 /* ==== Common Used Attributes ==== */

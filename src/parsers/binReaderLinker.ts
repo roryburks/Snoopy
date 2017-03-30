@@ -1,4 +1,4 @@
-import {DataLink} from "./parseStructure";
+import {DataLink, ValueUIComponent} from "./parseStructure";
 import {ParseColors} from "./colors";
 
 /**
@@ -124,6 +124,7 @@ export module BinLinks {
         
         get( data : Uint8Array) : number {return this.context.get(data, this.index);}
         getValue(data : Uint8Array)  : any { return this.get(data);}
+        changeValue( data : Uint8Array, val : any) : void{this.context.set(data, this.index, val);}
         
         getStartByte() : number {return this.context.seek + this.index*this.context.bytelen;}
         getLength() : number {return this.context.bytelen;}
@@ -161,6 +162,20 @@ export module BinLinks {
             }
             return n;
         }
+        set( data : Uint8Array, index : number, val : any) {
+            if( isNaN(val))return;
+            var n = (val as number);
+            var s = index * this.bytelen + this.seek;
+
+            for( var i=0; i<this.bytelen; ++i) {
+                if( this.littleEndian) 
+                    data[s + i] = (n >>> (8*i))&0xFF;
+                else 
+                    data[s + i] = (n >> (8*(this.bytelen-i-1)))&0xFF;
+            }
+
+            console.log("set");
+        }
 
         getVLength() : number { return this.length;}
         getValue(data : Uint8Array)  : string {return "Packed Data";}
@@ -170,6 +185,48 @@ export module BinLinks {
         getEndBitmask() : number {return 0xFF;}
     }
 
+}
+
+class WrapLink extends DataLink {
+    base : DataLink;
+    constructor( base : DataLink) {
+        super();
+        this.base = base;
+    }
+    getValue(data : Uint8Array)  : any {return this.base.getValue(data);}
+    getStartByte() : number {return this.base.getStartByte();}
+    getStartBitmask() : number {return this.base.getStartBitmask();}
+    getLength() : number {return this.base.getLength();}
+    getEndBitmask() : number {return this.base.getEndBitmask();}
+    changeValue( data : Uint8Array, val : any) : void{ this.base.changeValue(data, val);}
+}
+export module MakeEditable {
+
+    export class ColorPickerLink extends WrapLink
+    {
+        isEditable() : boolean {return true;}
+        getUIComp() : ValueUIComponent {
+            return new CPVUIC();
+        }
+    }
+    class CPVUIC implements ValueUIComponent
+    {
+        colorPicker : HTMLInputElement;
+        buildUI() : HTMLElement {
+            var ele = document.createElement('div');
+            ele.innerHTML = '<input type="color" id="htcp""></input>';
+            this.colorPicker = $(ele).find("#htcp").get(0) as HTMLInputElement;
+            return ele;
+        }
+        updateUI(value:any) {
+            var hexStr = (value as number).toString(16);
+            while( hexStr.length < 6) hexStr = "0" + hexStr;
+            $(this.colorPicker).val("#"+hexStr);
+        }
+        getUIValue() :any {
+            return parseInt(($(this.colorPicker).val() as string).substr(1), 16);
+        }
+    }
 }
 
 /**
@@ -275,6 +332,7 @@ export module SpecialLinks {
             super();
             this.seek = seek;
             this.length = length;
+
         }
         getValue(data : Uint8Array)  : any {return undefined;}
         getStartByte() : number {return this.seek;}

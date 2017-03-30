@@ -1,5 +1,5 @@
 import {BinaryReader} from "../binaryReader";
-import {ParseStructure, Parser, Segment, 
+import {ParseStructure, Parser, Segment, VisualUIComp,
     SegmentNode, UIComponent, UIComponents, DataLink}
      from "./parseStructure";
 import {ParseColors} from "./colors";
@@ -19,7 +19,11 @@ export class PNGParser extends Parser {
         if( !this.parseHeader()) return null;
         while( !this.lread.eof()) this.parseChunk();
 
-        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.data)) + '" />';
+        this.parsed.visualComp = {
+            buildUI : function(data : Uint8Array) : string {
+                return '<img src="data:image/*;base64,' + btoa(Uint8ToString(data)) + '" />';
+            }
+        }
         return this.parsed;
     }
     getError() : string{

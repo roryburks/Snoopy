@@ -3,7 +3,7 @@ import {ParseStructure, Parser, Segment,
      from "./parseStructure";
 import {ParseColors} from "./colors";
 import {randcolor, Uint8ToString} from "../util";
-import {BinaryReaderLinker, BinLinks, SpecialLinks} from "./binReaderLinker";
+import {BinaryReaderLinker, BinLinks, SpecialLinks, MakeEditable} from "./binReaderLinker";
 
 export class GIFParser extends Parser {
     parsed : ParseStructure;
@@ -93,7 +93,11 @@ export class GIFParser extends Parser {
             }
         }
 
-        this.parsed.visualHTML = '<img src="data:image/*;base64,' + btoa(Uint8ToString(this.data)) + '" />';
+        this.parsed.visualComp = {
+            buildUI : function(data : Uint8Array) : string {
+                return '<img src="data:image/*;base64,' + btoa(Uint8ToString(data)) + '" />';
+            }
+        }
 
         return this.parsed;
     }
@@ -367,8 +371,9 @@ class ColorTable extends SegmentData {
                 var index = row*n + col;
                 if( index >= this.size) break;
 
+                var subLink = new MakeEditable.ColorPickerLink( this.table.subLink(index));
                 comp.addPiece('<td class="%c"><div class="colorBox" style="background-color:#%dh_6"></div></td>',
-                    links.push(this.table.subLink(index))-1);
+                    links.push(subLink)-1);
             }
             comp.addPiece('</tr>');
         }
