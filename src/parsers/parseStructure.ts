@@ -84,7 +84,7 @@ export abstract class DataLink {
     abstract getStartBitmask() : number;
     abstract getLength() : number;
     abstract getEndBitmask() : number;
-    changeValue( data : Uint8Array, val : any) : void{}
+    changeValue( data : Uint8Array, val : any) : void{console.log("changeValue unimplemented for this type")}
     editable : boolean = false;
     uiComp : ValueUIComponent = null;
     getBound() : Bound {

@@ -237,6 +237,12 @@ body {
 #valueCommit:disabled {
     background-color: #555555;
 }
+#valOptions {
+    float: right;
+}
+.vDanger {
+    background-color: #FF5555;
+}
 
 
 

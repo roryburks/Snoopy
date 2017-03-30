@@ -312,6 +312,7 @@ export module ValueUIComponents {
     export function getUShortNE() : NumberEditorVUIC {return ushortNE;}
     export function getUIntNE() : NumberEditorVUIC {return uintNE;}
 
+
     // =================
     // ==== Special UI ValueUIComponents
     export class EnumVUIC implements ValueUIComponent
@@ -383,6 +384,10 @@ export module SpecialLinks {
 
             if( str == undefined) return this.def + " ("+val+")";
             return str + " ("+val+")";
+        }
+        changeValue( data : Uint8Array, val : any) : void{
+            var n  :number = (typeof val == "string") ? parseInt(val,10) : val;
+            this.base.changeValue(data, val);
         }
         getStartByte() : number { return this.base.getStartByte();}
         getStartBitmask() : number { return this.base.getStartBitmask();}

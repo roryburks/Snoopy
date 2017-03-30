@@ -18,6 +18,7 @@ export class UIManager {
     binfield : HTMLElement;
 
     btnRefresh : HTMLElement;
+    btnDanger : HTMLElement;
 
     hexContainer : HTMLElement;
     visualField : HTMLElement;
@@ -34,6 +35,7 @@ export class UIManager {
     hexComponent : any;
     treeManager : TreeManager;
 
+    dangerMode : boolean = false;   // If true, allows editting of things you shouldn't edit.
 
 
     constructor() {
@@ -47,6 +49,7 @@ export class UIManager {
         this.binfield = $("#segmentBin").get(0);
         this.hexContainer = $("#efsContainer").get(0) ;
         this.btnRefresh = $("#btnRefresh").get(0);
+        this.btnDanger = $("#btnDanger").get(0);
 
         this.visualField = $("visualField").get(0);
         this.valueButton = $("#valueCommit").get(0) as HTMLButtonElement;
@@ -81,6 +84,12 @@ export class UIManager {
             {this.hexComponent.mup(evt);}
         this.btnRefresh.onclick = (evt : MouseEvent) =>
             {$("#visualField").html( this.parsed.visualComp.buildUI(this.data) );}
+        this.btnDanger.onclick = ((evt : MouseEvent) => {
+            this.dangerMode = !this.dangerMode;
+            if( this.dangerMode)
+                $(this.btnDanger).addClass("vDanger");
+            else $(this.btnDanger).removeClass("vDanger");
+        }).bind(this);
     }
 
     assosciateData( data : Uint8Array, filename : string) {
@@ -210,13 +219,14 @@ export class UIManager {
         };
         this.hexComponent.setSelected( bound );
 
+        var edit : boolean = (link.editable || this.dangerMode);
         // Update the ValueField
-        this.valueButton.disabled = !link.editable;
+        this.valueButton.disabled = !edit;
         $(this.valueAuto).empty();
         $(this.valueContent).empty();
         this.valueButton.onclick = null;
 
-        if( link.editable) {
+        if( edit) {
             // Load up the Value UI Component
             var vuic = link.uiComp;
             if( vuic != null) {
