@@ -80,6 +80,71 @@ export class PNGParser extends Parser {
     }
 }
 
+
+/** A DataLink for wrapping around all PNG chunk data such that the 
+ * Cyclical Redundancy Check is automatically updated.
+ */
+class PNGWrapLink extends DataLink {
+    base : DataLink;
+    start : number;
+    length : number;
+    constructor( base :DataLink, start : number, length : number) {
+        super();
+        this.start = start;
+        this.length = length;
+        this.base = base;
+        this.uiComp = base.uiComp;
+        this.editable = base.editable;
+    }
+
+    getValue(data : Uint8Array)  : any { return this.base.getValue(data);}
+    getStartByte() : number { return this.base.getStartByte();}
+    getStartBitmask() : number {return this.base.getStartBitmask();}
+    getLength() : number {return this.base.getLength();}
+    getEndBitmask() : number {return this.base.getEndBitmask();}
+    changeValue( data : Uint8Array, val : any) : void {
+        this.base.changeValue(data, val);
+
+        var crc =CRCCalc.crc(data, this.start, this.length);
+
+        data[this.start+this.length] = (crc >>>24)&0xFF;
+        data[this.start+this.length+1] = (crc >>>16)&0xFF;
+        data[this.start+this.length+2] = (crc >>>8)&0xFF;
+        data[this.start+this.length+3] = (crc)&0xFF;
+    }
+
+}
+
+module CRCCalc {
+    // Calculate the CRC table (for fast computation)
+    var crc_table : Uint32Array = new Uint32Array(256);
+    {
+        let c, n, k : number;
+
+        for( n=0; n<256; ++n) {
+            c = n;
+            for( k=0; k<8; ++k) {
+                if( c & 1)
+                    c = 0xedb88320 ^ (c >>> 1);
+                else
+                    c = c >>> 1;
+            }
+            crc_table[n] = c;
+        }
+    }
+
+    export function crc( data : Uint8Array, start: number, len: number) {
+        var c = 0xFFFFFFFF;
+        var n;
+
+        for( n=0; n<len; ++n) {
+            c = (crc_table[(c^data[n+start]) & 0xFF]) ^ (c >>> 8);
+        }
+        return c ^ 0xFFFFFFFF;
+    }
+}
+
+
 function appendChunkHeaders( 
     start: number, 
     len: number, 
@@ -95,6 +160,10 @@ function appendChunkHeaders(
     uiComponents.push( new UIComponents.SimpleUIC(
         '<span class="chunkDesc"><br />Data Checksum: %Dh_8</span>',
         links.push( cSum)-1));
+
+    for( var i=0; i < links.length; ++i) {
+        links[i] = new PNGWrapLink( links[i], start+4, len-8);
+    }
 }
 
 abstract class SegmentData {
@@ -233,7 +302,9 @@ class sRGBData extends SegmentData {
                 "3":"Absolute colorimetric"
             },  "Unknown, nonstandard");
         
-        this.reader.readByte().get(reader.buffer);
+//        this.reader.readByte().get(reader.buffer);
+
+        this.intent.editable = true;
     }
     constructSegment() : Segment {
         var uiComponents : UIComponent[] = [];
@@ -262,6 +333,8 @@ class gAMAData extends SegmentData {
         super( reader, start, len);
 
         this.gamma = new SpecialLinks.FactorLink( reader.readUInt(), 1000000);
+
+        this.gamma.editable = true;
     }
     constructSegment() : Segment {
         var uiComponents : UIComponent[] = [];
@@ -294,6 +367,8 @@ class pHYsData extends SegmentData {
         this.pheight = reader.readUInt();
         this.type = new SpecialLinks.EnumLink( reader.readByte(),
             {"1": "square meter"}, "unspecified unit");
+
+        this.pwidth.editable = this.pheight.editable = this.type.editable = true;
     }
     constructSegment() : Segment {
         var uiComponents : UIComponent[] = [];
@@ -336,6 +411,10 @@ class cHRMData extends SegmentData {
         this.greeny = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
         this.bluex = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
         this.bluey = new SpecialLinks.FactorLink( reader.readUInt(), 100000);
+
+        this.whitex.editable = this.whitey.editable = this.redx.editable = this.redy.editable
+        this.greenx.editable = this.greeny.editable = this.bluex.editable = this.bluey.editable
+            = true;
     }
 
     constructSegment() : Segment {
@@ -421,6 +500,7 @@ class PLTEData extends SegmentData {
 
         for( var i=0; i < this.size; ++i) {
             this.colors[i] = reader.readRGB();
+            this.colors[i].editable = true;
         }
     }
     constructSegment() : Segment {

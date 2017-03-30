@@ -4,7 +4,7 @@ import {hexByteStr, Uint8ToString} from "../util";
 import {ParseStructure, Parser, Segment, SegmentNode} from "../parsers/parseStructure";
 import {UIComponents, UIComponent, DataLink} from "../parsers/parseStructure";
 import {ParseColors} from "./colors";
-import {BinaryReaderLinker, BinLinks, SpecialLinks} from "./binReaderLinker";
+import {BinaryReaderLinker, BinLinks, SpecialLinks, ValueUIComponents} from "./binReaderLinker";
 
 class JPGParser extends Parser{
     lread : BinaryReaderLinker;
@@ -278,6 +278,8 @@ class JFIFData extends SegmentBuilder {
         if( tx * ty > 0) {
             this.thumbnailData = reader.readBytes(tx*ty*3);
         }
+
+        this.xDensity.editable = this.yDensity.editable = this.pixelDensityUnits.editable = true;
     }
 
     constructSegment() : Segment {
@@ -341,6 +343,8 @@ class QuantTableData extends SegmentBuilder {
     dest : SpecialLinks.PartialByteLink;
     table : BinLinks.PackedNumberLink;
 
+    hp : boolean;
+
     constructor(reader : BinaryReaderLinker, start:number, len:number) {
         super(reader, start, len);
         
@@ -348,9 +352,9 @@ class QuantTableData extends SegmentBuilder {
         this.highPrec = new SpecialLinks.PartialByteLink( info, 4, 4);
         this.dest = new SpecialLinks.PartialByteLink( info, 0, 4);
 
-        var seek = this.reader.getSeek()
-        var hp = this.highPrec.get(reader.buffer);
-        if( hp) {
+        var seek = this.reader.getSeek();
+        this.hp = this.highPrec.get(reader.buffer) != 0;
+        if( this.hp) {
             this.table = new BinLinks.PackedNumberLink(seek, 64, 2, false);
             this.length = 2*64+1;
         }
@@ -427,7 +431,10 @@ class QuantTableData extends SegmentBuilder {
         };
     }
     private ele( x:number, y:number, links: DataLink[], index : number) {
-        links[x*8+y] = this.table.subLink(index);
+        var sl = this.table.subLink(index);
+        sl.uiComp = this.hp ? ValueUIComponents.getUShortNE() : ValueUIComponents.getByteNE();
+        sl.editable = true;
+        links[x*8+y] = sl;
     }
 }
 

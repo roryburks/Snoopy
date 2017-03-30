@@ -118,6 +118,8 @@ export class UIManager {
     setBoundSegment( seg : Segment, scrollto?: boolean, force?:boolean) {
         // Set the bound segment internally
         if( this.boundSegment == seg && !force) return;
+        if( this.boundSegment != seg)
+            this.nillOutBinding();
         this.boundSegment = seg;
         this.hexComponent.setSegment(seg);
 
@@ -235,6 +237,13 @@ export class UIManager {
             $(this.valueButtonTTT).css("display","block");
         else 
             $(this.valueButtonTTT).css("display","none");
+    }
+    private nillOutBinding() {
+        this.valueButton.disabled = true;
+        $(this.valueAuto).empty();
+        $(this.valueContent).empty();
+        this.valueButton.onclick = null;
+        $(this.valueButtonTTT).css("display","none");
     }
 
     // =====================
